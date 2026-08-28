@@ -20,8 +20,6 @@ export default function DoctorsBookingPage() {
   const [searchTrigger, setSearchTrigger] = useState("");
   const [showCategory, setShowCategory] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [priceRange, setPriceRange] = useState("");
-  const [showPrice, setShowPrice] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   // dữ liệu từ backend
@@ -153,7 +151,6 @@ export default function DoctorsBookingPage() {
                   setSearchTerm("");
                   setSearchTrigger("");
                   setSelectedCategories([]);
-                  setPriceRange("");
                   setCurrentPage(1);
                 }}
                 title="Reset bộ lọc"
@@ -209,57 +206,6 @@ export default function DoctorsBookingPage() {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            {/* Danh mục */}
-
-            {/* Mức giá */}
-            <div className="relative flex-1">
-              {/* <button
-                className="w-full px-3 py-2 border rounded-md bg-white text-left"
-                onClick={() => setShowPrice(!showPrice)}
-              >
-                {priceRange
-                  ? priceRanges.find((p) => p.value === priceRange)?.label
-                  : "Mức giá"}
-              </button> */}
-
-              {showPrice && (
-                <div className="absolute top-full mt-2 w-full bg-white border rounded-lg shadow-lg p-3 z-10">
-                  {/* <div className="flex flex-col gap-2">
-                    {priceRanges.map((p) => (
-                      <button
-                        key={p.value}
-                        onClick={() => {
-                          setPriceRange(p.value);
-                          setCurrentPage(1);
-                        }}
-                        className={`px-3 py-2 rounded-lg border ${priceRange === p.value
-                          ? "bg-green-500 border-green-600 text-white"
-                          : "bg-gray-100"
-                          }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div> */}
-                  <div className="flex justify-between mt-3">
-                    <button
-                      className="px-3 py-2 text-gray-500"
-                      onClick={() => setPriceRange("")}
-                    >
-                      Đặt lại
-                    </button>
-                    <button
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg"
-                      onClick={() => setShowPrice(false)}
-                    >
-                      Áp dụng
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Thông báo */}

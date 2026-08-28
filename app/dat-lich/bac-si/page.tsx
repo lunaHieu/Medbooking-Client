@@ -35,13 +35,11 @@ function DoctorBookingPageContent() {
 
     //state dữ liệu
     const [doctors, setDoctors] = useState<Model.Doctor[]>([]);
-    const [specialties, setSpecialties] = useState<Model.Specialty[]>([]);
     const [currentUser, setCurrentUser] = useState<Model.User | null>(null);
     const [loading, setLoading] = useState(true);
     const [familyMembers, setFamilyMembers] = useState<Model.FamilyMember[]>([]);
     const [selectedPatientId, setSelectedPatientId] = useState<number>(0);
     //state form
-    const [selectedPerson, setSelectedPerson] = useState("");
     const [selectedDoctor, setSelectedDoctor] = useState<Model.Doctor | null>(null);
 
     // State cho lịch
@@ -92,9 +90,8 @@ function DoctorBookingPageContent() {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [docsData, specsData, userData, familyData] = await Promise.all([
+                const [docsData, userData, familyData] = await Promise.all([
                     Api.getDoctors(),
-                    Api.getSpecialties(),
                     Api.getMe().catch(() => null),
                     Api.getFamilyMembers().catch(() => [] as Model.FamilyMember[])
                 ]);
@@ -108,7 +105,6 @@ function DoctorBookingPageContent() {
                         await handleViewDoctor(foundDoctor);
                     }
                 }
-                setSpecialties(specsData);
                 setFamilyMembers(familyData);
                 if (userData) {
                     setCurrentUser(userData);
@@ -118,15 +114,12 @@ function DoctorBookingPageContent() {
                         const matchedMember = familyData.find((m: Model.FamilyMember) => m.FullName === savedPersonName);
                         if (matchedMember) {
                             setSelectedPatientId(matchedMember.UserID);
-                            setSelectedPerson(matchedMember.FullName);
                         } else {
                             // Nếu không tìm thấy người thân, mặc định là mình
                             setSelectedPatientId(userData.UserID);
-                            setSelectedPerson(userData.FullName);
                         }
                     } else {
                         setSelectedPatientId(userData.UserID);
-                        setSelectedPerson(userData.FullName);
                     }
                 }
             } catch (error) {
@@ -136,7 +129,7 @@ function DoctorBookingPageContent() {
             }
         };
         fetchData();
-    }, []);
+    }, [urlDoctorId]);
     const handlePersonChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const value = e.target.value;
         if (value === "ADD_NEW_MEMBER") {
@@ -155,7 +148,6 @@ function DoctorBookingPageContent() {
                 name = matched.FullName;
             }
         }
-        setSelectedPerson(name);
         // Lưu lại lựa chọn mới nếu người dùng đổi ý tại trang này
         localStorage.setItem("booking_for_person", name);
     };

@@ -13,7 +13,6 @@ import {
 import {
   Pagination,
   PaginationContent,
-  PaginationEllipsis,
   PaginationItem,
   PaginationLink,
   PaginationNext,
@@ -72,7 +71,7 @@ export default function LichSuDatLich() {
       setAppointments((prev) =>
         prev.map((a) => (a.AppointmentID === id ? { ...a, Status: "Cancelled" } : a))
       );
-    } catch (error) {
+    } catch {
       alert("Hủy lịch thất bại.");
     }
   };

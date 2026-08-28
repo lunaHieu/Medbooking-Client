@@ -18,7 +18,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import * as Api from "@/lib/ApiClient";
-import { read } from "fs";
 
 interface NotificationUI {
   id: number;

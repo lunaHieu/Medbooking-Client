@@ -53,7 +53,7 @@ export default function RegisterPage() {
             formData.append("password_confirmation", confirmPassword);
             formData.append("Role", "BenhNhan");
 
-            const response = await register(formData);
+            await register(formData);
 
             alert("Đăng ký thành công! Bạn có thể đăng nhập ngay bây giờ.");
             router.push("/login");

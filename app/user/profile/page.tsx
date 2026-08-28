@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import LayoutUsers from "@/components/layoutUsers";
 import * as Api from "@/lib/ApiClient";
-import * as Model from "@/lib/model";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Lock } from "lucide-react";

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, ChangeEventHandler, Suspense } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -38,7 +38,6 @@ function ServiceBookingPageContent() {
 
     //State dữ liệu API & cache
     const [services, setServices] = useState<AggregatedService[]>([]);
-    const [specialties, setSpecialties] = useState<Model.Specialty[]>([]);
     const [currentUser, setCurrentUser] = useState<Model.User | null>(null);
     const [loading, setLoading] = useState(true);
     const [familyMembers, setFamilyMembers] = useState<Model.FamilyMember[]>([]);
@@ -47,7 +46,6 @@ function ServiceBookingPageContent() {
     const [slotsCache, setSlotsCache] = useState<Map<number, Model.AvailabilitySlot[]>>(new Map());
 
     //State form đặt lịch
-    const [selectedPerson, setSelectedPerson] = useState("");
     const [selectedService, setSelectedService] = useState<AggregatedService | null>(null);
 
     // State xử lý Slot
@@ -90,7 +88,7 @@ function ServiceBookingPageContent() {
                 const firstDate = validSlots[0].StartTime.split(" ")[0];
                 setSelectedDate(firstDate);
             }
-        } catch (error) {
+        } catch {
             alert("Không tải được lịch khám trống.");
         }
     };
@@ -126,7 +124,6 @@ function ServiceBookingPageContent() {
                         await handleViewService(foundService);
                     }
                 }
-                setSpecialties(specsData);
                 setFamilyMembers(familyData);
                 if (userData) {
                     setCurrentUser(userData);
@@ -138,14 +135,11 @@ function ServiceBookingPageContent() {
                         const matchedMember = familyData.find((m: Model.FamilyMember) => m.FullName === savedPersonName);
                         if (matchedMember) {
                             setSelectedPatientId(matchedMember.UserID);
-                            setSelectedPerson(matchedMember.FullName);
                         } else {
                             setSelectedPatientId(userData.UserID);
-                            setSelectedPerson(userData.FullName);
                         }
                     } else {
                         setSelectedPatientId(userData.UserID);
-                        setSelectedPerson(userData.FullName);
                     }
                 }
             } catch (error) {
@@ -155,7 +149,7 @@ function ServiceBookingPageContent() {
             }
         };
         fetchData();
-    }, []);
+    }, [urlServiceId]);
     const handlePersonChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const value = e.target.value;
         if (value === "ADD_NEW_MEMBER") {
@@ -174,14 +168,18 @@ function ServiceBookingPageContent() {
                 name = matched.FullName;
             }
         }
-        setSelectedPerson(name);
         // Lưu lại lựa chọn mới nếu người dùng đổi ý tại trang này
         localStorage.setItem("booking_for_person", name);
     };
 
     //LOGIC TÍNH TOÁN NGÀY GIỜ (Lấy từ Cache hoặc State)
     const serviceIdToView = viewingService?.ServiceID;
-    const currentSlots = serviceIdToView ? slotsCache.get(serviceIdToView) || [] : [];
+    const currentSlots = useMemo(() => {
+        if (!serviceIdToView) {
+            return [];
+        }
+        return slotsCache.get(serviceIdToView) ?? [];
+    }, [serviceIdToView, slotsCache]);
 
     const uniqueDates = useMemo(() => {
         const dates = new Set(currentSlots.map(slot => slot.StartTime.split(" ")[0]));

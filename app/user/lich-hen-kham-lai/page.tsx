@@ -17,7 +17,6 @@ export default function LichHenKhamLai() {
   const [appointments, setAppointments] = useState<Model.Appointment[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPatientId, setSelectedPatientId] = useState<number>(0);
-  const [selectedPatientName, setSelectedPatientName] = useState<string>("");
   //State lịch tía khám
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOldAppt, setSelectedOldAppt] = useState<Model.Appointment | null>(null);
@@ -26,7 +25,6 @@ export default function LichHenKhamLai() {
   const [availabilities, setAvailabilities] = useState<Model.AvailabilitySlot[]>([]);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
-  const [selectedTimeLabel, setSelectedTimeLabel] = useState("");
 
   const [reason, setReason] = useState("");
   const [bookingLoading, setBookingLoading] = useState(false);
@@ -66,7 +64,6 @@ export default function LichHenKhamLai() {
     setAvailabilities([]);
     setReason(`Tái khám theo lịch hẹn #${appt.AppointmentID}`); // Gợi ý lý do
     setSelectedPatientId(appt.PatientID);
-    setSelectedPatientName(appt.patientName || "Người bệnh");
     // Tải lịch trống của chính Bác sĩ cũ
     if (appt.DoctorID) {
       try {
@@ -78,7 +75,7 @@ export default function LichHenKhamLai() {
           const firstDate = validSlots[0].StartTime.split(" ")[0];
           setSelectedDate(firstDate);
         }
-      } catch (error) {
+      } catch {
         alert("Không tải được lịch của bác sĩ này.");
       }
     }
@@ -237,7 +234,7 @@ export default function LichHenKhamLai() {
                     {uniqueDates.length > 0 ? uniqueDates.map(date => (
                       <button
                         key={date}
-                        onClick={() => { setSelectedDate(date); setSelectedSlotId(null); setSelectedTimeLabel(""); }}
+                        onClick={() => { setSelectedDate(date); setSelectedSlotId(null); }}
                         className={`px-3 py-2 rounded border whitespace-nowrap text-sm font-medium transition
                                             ${selectedDate === date ? 'bg-green-600 text-white border-green-600' : 'bg-white border-gray-200 hover:bg-green-50'}
                                         `}
@@ -255,11 +252,11 @@ export default function LichHenKhamLai() {
                     <label className="block text-sm font-bold text-gray-700 mb-2">Chọn giờ:</label>
                     <div className="grid grid-cols-4 gap-2">
                       {slotsOnDate.map(slot => {
-                        const timeStr = (((slot as any).StartTime || (slot as any).startTime || "").split(" ")[1] || "").substring(0, 5);
+                        const timeStr = (slot.StartTime.split(" ")[1] || "").substring(0, 5);
                         return (
                           <button
                             key={slot.SlotID}
-                            onClick={() => { setSelectedSlotId(slot.SlotID); setSelectedTimeLabel(timeStr); }}
+                            onClick={() => { setSelectedSlotId(slot.SlotID); }}
                             className={`py-1.5 rounded border text-sm font-semibold transition ${selectedSlotId === slot.SlotID ? "bg-green-600 text-white shadow-md" : "hover:border-green-500 bg-white"
                               }`}
                           >

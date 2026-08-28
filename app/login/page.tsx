@@ -110,7 +110,7 @@ export default function LoginPage() {
         type: "success",
         text: "Đã gửi mã OTP vào email của bạn!",
       });
-    } catch (e) {
+    } catch {
       setModalMessage({
         type: "error",
         text: "Lỗi gửi mã. Kiểm tra lại email.",
@@ -150,8 +150,9 @@ export default function LoginPage() {
       setForgotOtp("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (err: any) {
-      setModalMessage({ type: "error", text: err.message || "Lỗi hệ thống." });
+    } catch (err: unknown) {
+      const message = err instanceof AxiosError ? err.message : "Lỗi hệ thống.";
+      setModalMessage({ type: "error", text: message });
     } finally {
       setModalLoading(false);
     }

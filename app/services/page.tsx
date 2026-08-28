@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { AxiosError } from "axios";
 import Layout from "@/components/layout";
 import {
   FaClipboardList,
@@ -65,8 +66,6 @@ export default function ServicesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [priceRange, setPriceRange] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
-
   // dữ liệu dịch vụ từ backend
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,9 +139,9 @@ export default function ServicesPage() {
         });
 
         setServices(mapped);
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error(e);
-        setError(e.message || "Có lỗi khi tải danh sách dịch vụ");
+        setError(e instanceof AxiosError ? e.message : "Có lỗi khi tải danh sách dịch vụ");
       } finally {
         setLoading(false);
       }

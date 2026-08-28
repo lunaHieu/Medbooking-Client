@@ -20,7 +20,6 @@ export default function SpecialtyBookingPage() {
     const [familyMembers, setFamilyMembers] = useState<Model.FamilyMember[]>([]);
     const [selectedPatientId, setSelectedPatientId] = useState<number>(0);
 
-    const [selectedPerson, setSelectedPerson] = useState("");
     const [selectedSpecialty, setSelectedSpecialty] = useState<Model.Specialty | null>(null);
 
     // State xử lý Lịch (Slot)
@@ -62,15 +61,12 @@ export default function SpecialtyBookingPage() {
                         const matchedMember = familyData.find((m: Model.FamilyMember) => m.FullName === savedPersonName);
                         if (matchedMember) {
                             setSelectedPatientId(matchedMember.UserID);
-                            setSelectedPerson(matchedMember.FullName);
                         } else {
                             // Nếu không tìm thấy người thân, mặc định là mình
                             setSelectedPatientId(userData.UserID);
-                            setSelectedPerson(userData.FullName);
                         }
                     } else {
                         setSelectedPatientId(userData.UserID);
-                        setSelectedPerson(userData.FullName);
                     }
                 }
             } catch (error) {
@@ -99,7 +95,6 @@ export default function SpecialtyBookingPage() {
                 name = matched.FullName;
             }
         }
-        setSelectedPerson(name);
         // Lưu lại lựa chọn mới nếu người dùng đổi ý tại trang này
         localStorage.setItem("booking_for_person", name);
     };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Layout from "@/components/layout";
 import Image from "next/image";
 import Link from "next/link";
@@ -236,7 +236,7 @@ export default function HomePage() {
         const steps = 60;
         const increment = duration / steps;
 
-        let current = { doctors: 0, patients: 0, specialties: 0 };
+        const current = { doctors: 0, patients: 0, specialties: 0 };
         const targets = { doctors: 1000, patients: 500000, specialties: 30 };
 
         const timer = setInterval(() => {
@@ -278,15 +278,7 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [banners.length]);
 
-  // Auto slide cho bác sĩ
-  useEffect(() => {
-    startAutoSlide();
-    return () => {
-      if (autoSlideRef.current) clearInterval(autoSlideRef.current);
-    };
-  }, []);
-
-  const getCardWidth = () => {
+  const getCardWidth = useCallback(() => {
     const track = trackRef.current;
     if (!track) return 250;
     const firstCard = track.querySelector(".doctor-card") as HTMLElement | null;
@@ -296,9 +288,9 @@ export default function HomePage() {
     const ml = parseFloat(styles.marginLeft || "0");
     const mr = parseFloat(styles.marginRight || "0");
     return rect.width + ml + mr;
-  };
+  }, []);
 
-  const startAutoSlide = () => {
+  const startAutoSlide = useCallback(() => {
     if (autoSlideRef.current) clearInterval(autoSlideRef.current);
 
     autoSlideRef.current = setInterval(() => {
@@ -322,7 +314,15 @@ export default function HomePage() {
       };
       track.addEventListener("transitionend", onEnd, { once: true });
     }, 3000);
-  };
+  }, [getCardWidth]);
+
+  // Auto slide cho bác sĩ
+  useEffect(() => {
+    startAutoSlide();
+    return () => {
+      if (autoSlideRef.current) clearInterval(autoSlideRef.current);
+    };
+  }, [startAutoSlide]);
 
   const handleMouseEnter = () => {
     if (autoSlideRef.current) clearInterval(autoSlideRef.current);
@@ -882,7 +882,7 @@ export default function HomePage() {
                   ))}
                 </div>
                 <p className="text-gray-700 mb-4 italic leading-relaxed">
-                  "{review.text}"
+                  &quot;{review.text}&quot;
                 </p>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
