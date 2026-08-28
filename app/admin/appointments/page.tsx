@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import * as Api from "@/lib/ApiClient";
 import * as Model from "@/lib/model";
 import { Doctor } from "@/lib/model";
@@ -8,28 +8,12 @@ import { Doctor } from "@/lib/model";
 // --- 1. CONFIG PAGINATION ---
 const ITEMS_PER_PAGE = 10; // Số lượng dòng trên mỗi trang (áp dụng cho cả 2 tab)
 
-// ... (Các hàm helper formatTime và getStatusBadge giữ nguyên) ...
-const parseSafeDate = (dateStr: any) => {
+const parseSafeDate = (dateStr: string | Date | null | undefined) => {
   if (!dateStr) return null;
   const s = dateStr.toString().replace(" ", "T");
   const d = new Date(s);
   if (isNaN(d.getTime())) return null;
   return d;
-};
-
-const formatTime = (dateString: string) => {
-  if (!dateString) return "";
-  try {
-    const date = parseSafeDate(dateString);
-    if (!date) return "";
-    return date.toLocaleTimeString("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-  } catch (e) {
-    return "";
-  }
 };
 
 const getStatusBadge = (status: string) => {
@@ -81,7 +65,7 @@ export default function AppointmentsPage() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
-  const [doctorSchedule, setDoctorSchedule] = useState<any[]>([]);
+  const [doctorSchedule, setDoctorSchedule] = useState<Model.AdminScheduleSlot[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [schedulePage, setSchedulePage] = useState(1); // Page của Tab 2 (Mới thêm)
 
@@ -97,50 +81,7 @@ export default function AppointmentsPage() {
     setLoading(true);
     try {
       const data = await Api.getAllAppointments();
-      const normalized = (data || []).map((item: any) => {
-        const patientUser = item.patient || item.Patient || {};
-        const patFName = patientUser.FirstName || patientUser.firstName || "";
-        const patLName = patientUser.LastName || patientUser.lastName || "";
-        const patFullName = (patFName + " " + patLName).trim() || patientUser.FullName || patientUser.fullName || patientUser.name || "Chưa cập nhật";
-
-        const docUser = item.doctor?.user || item.doctor?.User || {};
-        const docFName = docUser.FirstName || docUser.firstName || "";
-        const docLName = docUser.LastName || docUser.lastName || "";
-        const docFullName = (docFName + " " + docLName).trim() || docUser.FullName || docUser.fullName || docUser.name || "Chưa cập nhật";
-
-        return {
-          ...item,
-          AppointmentID: item.AppointmentID || item.appointmentId,
-          Status: item.Status || item.status,
-          StartTime: item.StartTime || item.startTime,
-          EstimatedDuration: item.EstimatedDuration || item.estimatedDuration,
-          InitialSymptoms: item.InitialSymptoms || item.initialSymptoms,
-          CancellationReason: item.CancellationReason || item.cancellationReason,
-          file_path: item.file_path || item.filePath,
-          patient: item.patient || item.Patient ? {
-            ...(item.patient || item.Patient),
-            UserID: patientUser.UserID || patientUser.userId,
-            FullName: patFullName,
-            PhoneNumber: patientUser.PhoneNumber || patientUser.phoneNumber
-          } : null,
-          doctor: item.doctor || item.Doctor ? {
-            ...(item.doctor || item.Doctor),
-            DoctorID: (item.doctor || item.Doctor).DoctorID || (item.doctor || item.Doctor).doctorId,
-            SpecialtyID: (item.doctor || item.Doctor).SpecialtyID || (item.doctor || item.Doctor).specialtyId || (item.doctor || item.Doctor).specialty?.specialtyId,
-            user: item.doctor.user || item.doctor.User ? {
-              ...(item.doctor.user || item.doctor.User),
-              UserID: docUser.UserID || docUser.userId,
-              FullName: docFullName
-            } : null,
-            specialty: (item.doctor || item.Doctor).specialty ? {
-              ...(item.doctor || item.Doctor).specialty,
-              SpecialtyID: (item.doctor || item.Doctor).specialty.SpecialtyID || (item.doctor || item.Doctor).specialty.specialtyId,
-              SpecialtyName: (item.doctor || item.Doctor).specialty.SpecialtyName || (item.doctor || item.Doctor).specialty.specialtyName
-            } : null
-          } : null
-        };
-      });
-      const sortedData = normalized.sort(
+      const sortedData = [...data].sort(
         (a, b) =>
           new Date(b.StartTime).getTime() - new Date(a.StartTime).getTime()
       );
@@ -154,27 +95,8 @@ export default function AppointmentsPage() {
 
   const fetchDoctors = async () => {
     try {
-      const res = await Api.getDoctors();
-      const normalized = (res || []).map((d: any) => {
-        const u = d.user || d.User || {};
-        const fName = u.FirstName || u.firstName || "";
-        const lName = u.LastName || u.lastName || "";
-        const fullName = (fName + " " + lName).trim() || u.FullName || u.fullName || u.name || "Chưa cập nhật";
-        return {
-          ...d,
-          DoctorID: d.DoctorID || d.doctorId,
-          SpecialtyID: d.SpecialtyID || d.specialtyId || d.specialty?.specialtyId,
-          user: d.user || d.User ? {
-            ...(d.user || d.User),
-            FullName: fullName
-          } : null,
-          specialty: d.specialty ? {
-            ...d.specialty,
-            SpecialtyName: d.specialty.SpecialtyName || d.specialty.specialtyName
-          } : null
-        };
-      });
-      setDoctorsList(normalized);
+      const doctors = await Api.getDoctors();
+      setDoctorsList(doctors);
     } catch (error) {
       console.error("Lỗi lấy danh sách bác sĩ", error);
     }
@@ -188,27 +110,9 @@ export default function AppointmentsPage() {
         selectedDoctorId,
         selectedDate
       );
-      const normalized = (res || []).map((slot: any) => ({
-        ...slot,
-        SlotID: slot.SlotID || slot.slotId,
-        StartTime: slot.StartTime || slot.startTime,
-        EndTime: slot.EndTime || slot.endTime,
-        Status: slot.Status || slot.status,
-        appointment: slot.appointment ? {
-          ...slot.appointment,
-          AppointmentID: slot.appointment.AppointmentID || slot.appointment.appointmentId,
-          Status: slot.appointment.Status || slot.appointment.status,
-          StartTime: slot.appointment.StartTime || slot.appointment.startTime,
-          patient: slot.appointment.patient ? {
-            ...slot.appointment.patient,
-            FullName: ((slot.appointment.patient.FirstName || slot.appointment.patient.firstName || "") + " " + (slot.appointment.patient.LastName || slot.appointment.patient.lastName || "")).trim() || slot.appointment.patient.FullName || slot.appointment.patient.fullName || "Chưa cập nhật",
-            PhoneNumber: slot.appointment.patient.PhoneNumber || slot.appointment.patient.phoneNumber
-          } : null
-        } : null
-      }));
-      setDoctorSchedule(normalized);
+      setDoctorSchedule(res);
       setSchedulePage(1); // Reset về trang 1 khi load dữ liệu mới
-    } catch (error) {
+    } catch {
       alert("Không tải được lịch làm việc");
     } finally {
       setScheduleLoading(false);
@@ -247,7 +151,7 @@ export default function AppointmentsPage() {
       alert(`Đã duyệt #${selectedAppt.AppointmentID}`);
       setIsModalOpen(false);
       refreshCurrentView();
-    } catch (error) {
+    } catch {
       alert("Thất bại.");
     }
   };
@@ -259,7 +163,7 @@ export default function AppointmentsPage() {
       alert(`Đã check-in #${selectedAppt.AppointmentID}`);
       setIsModalOpen(false);
       refreshCurrentView();
-    } catch (error) {
+    } catch {
       alert("Thất bại.");
     }
   };
@@ -275,7 +179,7 @@ export default function AppointmentsPage() {
       alert(`Đã hủy #${selectedAppt.AppointmentID}`);
       setIsModalOpen(false);
       refreshCurrentView();
-    } catch (error) {
+    } catch {
       alert("Thất bại.");
     }
   };
@@ -285,11 +189,9 @@ export default function AppointmentsPage() {
     return appointments.filter((item) => {
       const statusMatch =
         filterStatus === "all" || item.Status === filterStatus;
-      const patient = item?.patient as any;
-      const docUser = item?.doctor?.user as any;
-      const pName = (patient?.FullName || patient?.fullName || patient?.name || "").toLowerCase();
-      const dName = (docUser?.FullName || docUser?.fullName || docUser?.name || "").toLowerCase();
-      const idStr = (item?.AppointmentID || "").toString();
+      const pName = (item.patient?.FullName || "").toLowerCase();
+      const dName = (item.doctor?.user?.FullName || "").toLowerCase();
+      const idStr = item.AppointmentID.toString();
       const search = (searchTerm || "").toLowerCase();
       return (
         statusMatch &&
@@ -419,14 +321,13 @@ export default function AppointmentsPage() {
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {currentAppointments.map((item) => {
-                          const appt = item as any;
-                          const apptId = appt.AppointmentID || appt.appointmentId;
-                          const patientName = appt.patient?.FullName || appt.patient?.fullName || appt.patient?.name || (((appt.patient?.FirstName || appt.patient?.firstName || "") + " " + (appt.patient?.LastName || appt.patient?.lastName || "")).trim() || "N/A");
-                          const patientPhone = appt.patient?.PhoneNumber || appt.patient?.phoneNumber || "N/A";
-                          const doctorName = appt.doctor?.user?.FullName || appt.doctor?.user?.fullName || appt.doctor?.user?.name || (((appt.doctor?.user?.FirstName || appt.doctor?.user?.firstName || "") + " " + (appt.doctor?.user?.LastName || appt.doctor?.user?.lastName || "")).trim() || "N/A");
-                          const specialtyName = appt.doctor?.specialty?.SpecialtyName || appt.doctor?.specialty?.specialtyName || "---";
-                          const apptStatus = appt.Status || appt.status || "Pending";
-                          const startTimeObj = parseSafeDate(appt.StartTime || appt.startTime);
+                          const apptId = item.AppointmentID;
+                          const patientName = item.patient?.FullName || "N/A";
+                          const patientPhone = item.patient?.PhoneNumber || "N/A";
+                          const doctorName = item.doctor?.user?.FullName || "N/A";
+                          const specialtyName = item.doctor?.specialty?.SpecialtyName || "---";
+                          const apptStatus = item.Status || "Pending";
+                          const startTimeObj = parseSafeDate(item.StartTime);
                           return (
                             <tr
                               key={apptId}
@@ -531,13 +432,9 @@ export default function AppointmentsPage() {
                   >
                     <option value="">-- Chọn bác sĩ --</option>
                     {doctorsList.map((dItem) => {
-                      const doc = dItem as any;
-                      const docId = doc.DoctorID || doc.doctorId;
-                      const u = doc.user || doc.User || {};
-                      const fName = u.FirstName || u.firstName || "";
-                      const lName = u.LastName || u.lastName || "";
-                      const docName = (fName + " " + lName).trim() || u.FullName || u.fullName || u.name || "Chưa cập nhật";
-                      const specName = doc.specialty ? (doc.specialty.SpecialtyName || doc.specialty.specialtyName) : "";
+                      const docId = dItem.DoctorID;
+                      const docName = dItem.user?.FullName || "Chưa cập nhật";
+                      const specName = dItem.specialty?.SpecialtyName || "";
                       return (
                         <option key={docId} value={docId}>
                           BS. {docName} {specName ? `- Khoa ${specName}` : ""}
@@ -611,26 +508,21 @@ export default function AppointmentsPage() {
                       <tbody className="bg-white divide-y divide-gray-200">
                         {/* Dùng currentScheduleSlots thay vì doctorSchedule */}
                         {currentScheduleSlots.map((slotItem) => {
-                          const slot = slotItem as any;
-                          const slotId = slot.SlotID || slot.slotId;
-                          const appt = slot.appointment as any;
-                          const apptId = appt ? (appt.AppointmentID || appt.appointmentId) : null;
-                          const apptStatus = appt ? (appt.Status || appt.status) : null;
-                          
-                          const patient = appt?.patient as any;
-                          const patientName = patient ? (patient.FullName || patient.fullName || patient.name || (((patient.FirstName || patient.firstName || "") + " " + (patient.LastName || patient.lastName || "")).trim())) : null;
-                          const patientPhone = patient ? (patient.PhoneNumber || patient.phoneNumber) : null;
-                          
-                          const slotStatus = slot.Status || slot.status || "available";
-                          
-                          const dStart = parseSafeDate(slot.StartTime || slot.startTime);
-                          const dEnd = parseSafeDate(slot.EndTime || slot.endTime);
+                          const slotId = slotItem.SlotID;
+                          const appt = slotItem.appointment;
+                          const apptId = appt?.AppointmentID;
+                          const apptStatus = appt?.Status;
+                          const patient = appt?.patient;
+                          const patientName = patient?.FullName;
+                          const patientPhone = patient?.PhoneNumber;
+                          const slotStatus = slotItem.Status.toLowerCase();
+                          const dStart = parseSafeDate(slotItem.StartTime);
+                          const dEnd = parseSafeDate(slotItem.EndTime);
                           const startStr = dStart ? dStart.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
                           const endStr = dEnd ? dEnd.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
                           
-                          const docUser = (currentSelectedDoctor as any)?.user;
-                          const docName = docUser ? (docUser.FullName || docUser.fullName || docUser.name || (((docUser.FirstName || docUser.firstName || "") + " " + (docUser.LastName || docUser.lastName || "")).trim())) : "N/A";
-                          const specName = (currentSelectedDoctor as any)?.specialty ? ((currentSelectedDoctor as any).specialty.SpecialtyName || (currentSelectedDoctor as any).specialty.specialtyName) : "---";
+                          const docName = currentSelectedDoctor?.user?.FullName || "N/A";
+                          const specName = currentSelectedDoctor?.specialty?.SpecialtyName || "---";
 
                           return (
                             <tr
@@ -730,13 +622,13 @@ export default function AppointmentsPage() {
 
           {/* MODAL */}
           {isModalOpen && selectedAppt && (() => {
-            const appt = selectedAppt as any;
+            const appt = selectedAppt;
             return (
               <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-4">
                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden transform transition-all scale-100">
                   <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                     <h3 className="text-lg font-bold text-gray-900">
-                      Chi tiết Lịch hẹn #{appt.AppointmentID || appt.appointmentId}
+                      Chi tiết Lịch hẹn #{appt.AppointmentID}
                     </h3>
                     <button
                       onClick={() => setIsModalOpen(false)}
@@ -751,7 +643,7 @@ export default function AppointmentsPage() {
                         Ghi chú
                       </p>
                       <p className="font-medium text-gray-800">
-                        {appt.InitialSymptoms || appt.initialSymptoms || "Không có mô tả"}
+                         {appt.InitialSymptoms || "Không có mô tả"}
                       </p>
                     </div>
                     <div>
@@ -759,10 +651,10 @@ export default function AppointmentsPage() {
                         Bệnh nhân
                       </p>
                       <p className="font-bold text-lg">
-                        {appt.patient?.FullName || appt.patient?.fullName || appt.patient?.name || (((appt.patient?.FirstName || appt.patient?.firstName || "") + " " + (appt.patient?.LastName || appt.patient?.lastName || "")).trim())}
+                         {appt.patient?.FullName || "Chưa cập nhật"}
                       </p>
                       <p className="text-sm text-gray-600">
-                        {appt.patient?.PhoneNumber || appt.patient?.phoneNumber}
+                         {appt.patient?.PhoneNumber || "Chưa cập nhật"}
                       </p>
                     </div>
                     <div>
@@ -770,16 +662,16 @@ export default function AppointmentsPage() {
                         Bác sĩ
                       </p>
                       <p className="font-bold text-lg text-blue-700">
-                        {appt.doctor?.user?.FullName || appt.doctor?.user?.fullName || appt.doctor?.user?.name || (((appt.doctor?.user?.FirstName || appt.doctor?.user?.firstName || "") + " " + (appt.doctor?.user?.LastName || appt.doctor?.user?.lastName || "")).trim())}
+                         {appt.doctor?.user?.FullName || "Chưa cập nhật"}
                       </p>
                       <p className="text-sm text-gray-600">
-                        {appt.doctor?.specialty?.SpecialtyName || appt.doctor?.specialty?.specialtyName}
+                         {appt.doctor?.specialty?.SpecialtyName || "Chưa cập nhật"}
                       </p>
                     </div>
-                    {(appt.file_path || appt.filePath) && (
+                    {appt.file_path && (
                       <div className="col-span-1 md:col-span-2">
                         <a
-                          href={appt.file_path || appt.filePath}
+                          href={appt.file_path}
                           target="_blank"
                           className="text-blue-600 hover:underline"
                         >
@@ -787,10 +679,10 @@ export default function AppointmentsPage() {
                         </a>
                       </div>
                     )}
-                    {["Pending", "Confirmed"].includes(appt.Status || appt.status || "") && (
+                    {["Pending", "Confirmed"].includes(appt.Status) && (
                       <div className="col-span-1 md:col-span-2 mt-4 pt-6 border-t border-gray-100">
                         <div className="flex gap-3 mb-4">
-                          {(appt.Status || appt.status) === "Pending" && (
+                          {appt.Status === "Pending" && (
                             <button
                               onClick={handleConfirm}
                               className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-bold"
@@ -798,7 +690,7 @@ export default function AppointmentsPage() {
                               Duyệt
                             </button>
                           )}
-                          {(appt.Status || appt.status) === "Confirmed" && (
+                          {appt.Status === "Confirmed" && (
                             <button
                               onClick={handleCheckIn}
                               className="flex-1 bg-purple-600 text-white py-2 rounded-lg font-bold"
@@ -823,9 +715,9 @@ export default function AppointmentsPage() {
                         </div>
                       </div>
                     )}
-                    {(appt.Status || appt.status) === "Cancelled" && (
+                    {appt.Status === "Cancelled" && (
                       <div className="col-span-1 md:col-span-2 bg-gray-100 p-3 rounded text-red-600">
-                        Đã hủy: {appt.CancellationReason || appt.cancellationReason}
+                        Đã hủy: {appt.CancellationReason}
                       </div>
                     )}
                   </div>

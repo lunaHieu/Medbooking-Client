@@ -1,6 +1,7 @@
 "use client";
 
 import { login } from "@/lib/ApiClient";
+import { AxiosError } from "axios";
 import dayjs from "dayjs";
 import { useState } from "react";
 
@@ -29,9 +30,10 @@ export default function LoginModal({ onLoginSuccess }: { onLoginSuccess: () => v
                 localStorage.removeItem("user_role");
                 localStorage.removeItem("user");
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Admin login failed:", err);
-            const msg = err.response?.data?.message || err.message || "Tên tài khoản hoặc mật khẩu không chính xác.";
+            const apiError = err instanceof AxiosError ? err.response?.data as { message?: string } | undefined : undefined;
+            const msg = apiError?.message || (err instanceof AxiosError ? err.message : "Tên tài khoản hoặc mật khẩu không chính xác.");
             setError(msg);
         } finally {
             setIsLoading(false);
@@ -61,9 +63,10 @@ export default function LoginModal({ onLoginSuccess }: { onLoginSuccess: () => v
                     <div className="flex justify-end space-x-2">
                         <button
                             type="submit"
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                            disabled={isLoading}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                            Đăng nhập
+                            {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
                         </button>
                     </div>
                 </form>

@@ -58,30 +58,17 @@ export default function NotificationManagerPage() {
     setLoading(true);
     try {
       const data = await Api.getNotificationLogs();
-      const rawData = (
-        Array.isArray(data)
-          ? data
-          : (data as { data: Model.RawApiNotification[] })?.data || []
-      ) as Model.RawApiNotification[];
-
-      if (Array.isArray(rawData)) {
-        const mappedLogs: Model.NotificationLog[] = rawData.map((item) => ({
+      if (Array.isArray(data)) {
+        const mappedLogs: Model.NotificationLog[] = data.map((item) => ({
           id: item.NotificationID,
-
-          recipient: item.user
-            ? ((item.user as any).FullName || (item.user as any).fullName || `User #${(item as any).UserID || (item as any).userId}`)
-            : ((item as any).UserID || (item as any).userId)
-            ? `User #${(item as any).UserID || (item as any).userId}`
-            : item.target_group === "patients"
-            ? "Tất cả Bệnh nhân"
-            : "Tất cả",
-
+          recipient: item.UserID ? `Người dùng #${item.UserID}` : "Thông báo hệ thống",
           title: item.Title || "Không tiêu đề",
           content: item.Content,
-          type:
-            (item.NotificationType as "SystemAlert" | "Reminder" | "Other") ||
-            "Other",
-
+          type: item.NotificationType === "Reminder"
+            ? "Reminder"
+            : item.NotificationType === "System"
+              ? "SystemAlert"
+              : "Other",
           sent_at: item.created_at
             ? new Date(item.created_at).toLocaleString("vi-VN")
             : "N/A",

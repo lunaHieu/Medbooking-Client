@@ -48,16 +48,15 @@ export default function FeedbacksPage() {
     try {
       const data = await Api.adminGetFeedbacks();
 
-      //Map dữ liệu từ API sang UI (hỗ trợ cả Java CamelCase và PHP PascalCase)
-      const mappedData: FeedbackUI[] = (data as any[]).map((item) => ({
-        id: item.FeedbackID || item.feedbackId || 0,
-        patientName: item.ReviewerName || item.patientName || "Bệnh nhân",
-        patientAvatar: item.ReviewerAvatar || item.patientAvatar || "",
-        targetName: item.TargetName || item.doctorName || item.specialtyName || "Hệ thống",
-        type: item.Type || (item.doctorName ? "Doctor" : "System"),
-        rating: item.Rating !== undefined ? item.Rating : (item.rating !== undefined ? item.rating : 5),
-        comment: item.Comment || item.comment || "",
-        date: item.CreatedAt || item.createdAt || "",
+      const mappedData: FeedbackUI[] = data.map((item) => ({
+        id: item.FeedbackID,
+        patientName: item.ReviewerName || "Bệnh nhân",
+        patientAvatar: item.ReviewerAvatar || "",
+        targetName: item.TargetName || "Hệ thống",
+        type: item.Type,
+        rating: item.Rating,
+        comment: item.Comment || "",
+        date: item.CreatedAt,
       }));
 
       setFeedbacks(mappedData);

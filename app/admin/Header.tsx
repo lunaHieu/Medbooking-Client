@@ -8,19 +8,7 @@ import { LogOut, Home } from "lucide-react"; // Icon cho đẹp
 
 export default function Header() {
   const router = useRouter();
-  const [query, setQuery] = useState("");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      handleSubmit();
-    }
-  };
-
-  const handleSubmit = () => {
-    console.log("Search submitted:", query);
-    // TODO: Redirect hoặc lọc sản phẩm
-  };
 
   const handleLogout = async () => {
     if (!confirm("Bạn có chắc chắn muốn đăng xuất khỏi trang quản trị?"))

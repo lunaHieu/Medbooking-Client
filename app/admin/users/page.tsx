@@ -15,21 +15,6 @@ const ROLE_LABELS: Record<string, string> = {
   QuanTriVien: "Quản trị viên",
 };
 
-const normalizeRole = (role: string) => {
-  const r = (role || "").toUpperCase();
-  if (r === "DOCTOR" || r === "BACSI" || r === "BAC_SI") return "BacSi";
-  if (r === "MEDICAL_STAFF" || r === "NHANVIEN" || r === "STAFF") return "NhanVien";
-  if (r === "ADMIN" || r === "QUANTRI" || r === "QUANTRIVIEN") return "QuanTriVien";
-  return "BenhNhan";
-};
-
-const normalizeStatus = (status: string) => {
-  const s = (status || "").toLowerCase();
-  if (s === "active" || s === "hoatdong" || s === "hoat_dong") return "HoatDong";
-  if (s === "blocked" || s === "khoa" || s === "inactive") return "Khoa";
-  return "HoatDong";
-};
-
 const STATUS_LABELS: Record<string, string> = {
   HoatDong: "Hoạt động",
   Khoa: "Đã khóa",
@@ -43,63 +28,51 @@ const USERS_PER_PAGE = 10;
 //Model Form
 interface UserFormProps {
   user: Model.User | null;
-  specialties: Model.Specialty[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
 const UserFormModal: React.FC<UserFormProps> = ({
   user,
-  specialties,
   onClose,
   onSuccess,
 }) => {
-  const u = user as any;
   const isEdit = !!user;
   const [loading, setLoading] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
 
-  const fName = u?.FirstName || u?.firstName || "";
-  const lName = u?.LastName || u?.lastName || "";
-  const initialFullName = (fName + " " + lName).trim() || u?.FullName || u?.fullName || u?.name || "";
-
   // State Form
   const [formData, setFormData] = useState({
-    FullName: initialFullName,
-    Email: (u?.Email || u?.email || ""),
-    Username: (u?.Username || u?.username || ""),
-    PhoneNumber: (u?.PhoneNumber || u?.phoneNumber || ""),
-    Role: (u?.Role || u?.role || "BenhNhan"),
-    Status: (u?.Status || u?.status || "HoatDong"),
+    FullName: user?.FullName || "",
+    Email: user?.Email || "",
+    Username: user?.Username || "",
+    PhoneNumber: user?.PhoneNumber || "",
+    Role: user?.Role || "BenhNhan",
+    Status: user?.Status || "HoatDong",
     Password: "",
-    SpecialtyID: 0,
   });
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const [previewUrl, setPreviewUrl] = useState<string>(
-    (u?.AvatarURL || u?.avatarURL || u?.avatarUrl || u?.avatar_url) 
-      ? getFullImageUrl(u?.AvatarURL || u?.avatarURL || u?.avatarUrl || u?.avatar_url || "") 
+    user?.avatar_url
+      ? getFullImageUrl(user.avatar_url)
       : ""
   );
   useEffect(() => {
-    if (u) {
-      const f = u.FirstName || u.firstName || "";
-      const l = u.LastName || u.lastName || "";
-      const fn = (f + " " + l).trim() || u.FullName || u.fullName || u.name || "";
+    if (user) {
       setFormData({
-        FullName: fn,
-        Email: u.Email || u.email || "",
-        Username: u.Username || u.username || "",
-        PhoneNumber: u.PhoneNumber || u.phoneNumber || "",
-        Role: u.Role || u.role || "BenhNhan",
-        Status: u.Status || u.status || "HoatDong",
+        FullName: user.FullName,
+        Email: user.Email || "",
+        Username: user.Username,
+        PhoneNumber: user.PhoneNumber,
+        Role: user.Role,
+        Status: user.Status,
         Password: "",
-        SpecialtyID: 0,
       });
 
       // Cập nhật ảnh preview
-      const av = u.AvatarURL || u.avatarURL || u.avatarUrl || u.avatar_url;
+      const av = user.avatar_url;
       setPreviewUrl(av ? getFullImageUrl(av) : "");
     } else {
       setFormData({
@@ -110,7 +83,6 @@ const UserFormModal: React.FC<UserFormProps> = ({
         Role: "BenhNhan",
         Status: "HoatDong",
         Password: "",
-        SpecialtyID: 0,
       });
       setPreviewUrl("");
       setSelectedFile(null);
@@ -122,7 +94,7 @@ const UserFormModal: React.FC<UserFormProps> = ({
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "SpecialtyID" ? Number(value) : value,
+      [name]: value,
     }));
   };
 
@@ -172,16 +144,12 @@ const UserFormModal: React.FC<UserFormProps> = ({
         data.append("password", formData.Password);
       }
 
-      if (selectedFile) {
-        data.append("avatar_url", selectedFile);
+      if (selectedFile && isEdit) {
+        data.append("avatar", selectedFile);
       }
 
-      if (formData.Role === "BacSi" && formData.SpecialtyID > 0) {
-        data.append("SpecialtyID", formData.SpecialtyID.toString());
-      }
-
-      if (isEdit && u) {
-        await Api.adminUpdateUser(u.UserID || u.userId, data);
+      if (isEdit && user) {
+        await Api.adminUpdateUser(user.UserID, data);
         alert("Cập nhật thành công!");
       } else {
         await Api.adminCreateUser(data);
@@ -319,10 +287,10 @@ const UserFormModal: React.FC<UserFormProps> = ({
                   value={formData.Role}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-blue-500 outline-none bg-white cursor-pointer"
-                  disabled={isEdit && (u.Role || u.role) === "QuanTriVien"}
+                  disabled={isEdit && (user?.Role === "QuanTriVien" || user?.Role === "BacSi")}
                 >
                   {ROLES.filter((role) =>
-                    isEdit ? true : role !== "BacSi"
+                    role !== "BacSi" || user?.Role === "BacSi"
                   ).map((role) => (
                     <option key={role} value={role}>
                       {ROLE_LABELS[role]}
@@ -330,27 +298,6 @@ const UserFormModal: React.FC<UserFormProps> = ({
                   ))}
                 </select>
               </div>
-
-              {formData.Role === "BacSi" && (
-                <div className="animate-fade-in bg-blue-50 p-3 rounded-lg border border-blue-100">
-                  <label className="block text-sm font-medium text-blue-800 mb-1">
-                    Thuộc Chuyên khoa
-                  </label>
-                  <select
-                    name="SpecialtyID"
-                    value={formData.SpecialtyID}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-blue-200 rounded-md focus:ring-blue-500 outline-none bg-white text-sm"
-                  >
-                    <option value={0}>-- Chọn chuyên khoa --</option>
-                    {specialties.map((s) => (
-                      <option key={s.SpecialtyID} value={s.SpecialtyID}>
-                        {s.SpecialtyName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -447,7 +394,6 @@ const UserFormModal: React.FC<UserFormProps> = ({
 //Main
 export default function UserManagementPage() {
   const [users, setUsers] = useState<Model.User[]>([]);
-  const [specialties, setSpecialties] = useState<Model.Specialty[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filter & Search
@@ -463,33 +409,11 @@ export default function UserManagementPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersData, specsData] = await Promise.all([
-        Api.adminGetUsers(filterRole || undefined, searchQuery || undefined),
-        Api.getSpecialties(),
-      ]);
-      const normalizedUsers = (usersData || []).map((u: any) => {
-        const f = u.FirstName || u.firstName || "";
-        const l = u.LastName || u.lastName || "";
-        const fullName = (f + " " + l).trim() || u.FullName || u.fullName || u.name || "Chưa cập nhật";
-        return {
-          ...u,
-          UserID: u.UserID || u.userId,
-          FullName: fullName,
-          Username: u.Username || u.username,
-          Email: u.Email || u.email,
-          PhoneNumber: u.PhoneNumber || u.phoneNumber,
-          Role: normalizeRole(u.Role || u.role),
-          Status: normalizeStatus(u.Status || u.status),
-          avatar_url: u.avatar_url || u.avatarURL
-        };
-      });
-      const normalizedSpecs = (specsData || []).map((s: any) => ({
-        ...s,
-        SpecialtyID: s.SpecialtyID || s.specialtyId,
-        SpecialtyName: s.SpecialtyName || s.specialtyName
-      }));
-      setUsers(normalizedUsers);
-      setSpecialties(normalizedSpecs);
+      const usersData = await Api.adminGetUsers(
+        filterRole || undefined,
+        searchQuery || undefined,
+      );
+      setUsers(usersData);
     } catch (error) {
       console.error("Lỗi tải dữ liệu:", error);
     } finally {
@@ -521,12 +445,10 @@ export default function UserManagementPage() {
 
   const handleDelete = async (userId: number) => {
     //Tìm thông tin người dùng trong danh sách hiện tại
-    const userToDelete = users.find((u) => (u.UserID || (u as any).userId) === userId) as any;
+    const userToDelete = users.find((user) => user.UserID === userId);
     if (!userToDelete) return;
 
-    const fName = userToDelete.FirstName || userToDelete.firstName || "";
-    const lName = userToDelete.LastName || userToDelete.lastName || "";
-    const uName = (fName + " " + lName).trim() || userToDelete.FullName || userToDelete.fullName || userToDelete.name || "Chưa cập nhật";
+    const uName = userToDelete.FullName || "Chưa cập nhật";
     if (
       confirm(
         `Bạn có chắc chắn muốn KHÓA tài khoản "${uName}" không?`
@@ -537,15 +459,15 @@ export default function UserManagementPage() {
         data.append("Status", "Khoa"); // Chuyển trạng thái sang Khóa
 
         data.append("FullName", uName);
-        data.append("Username", userToDelete.Username || userToDelete.username || "");
-        data.append("PhoneNumber", userToDelete.PhoneNumber || userToDelete.phoneNumber || "");
-        data.append("Role", userToDelete.Role || userToDelete.role || "");
+        data.append("Username", userToDelete.Username);
+        data.append("PhoneNumber", userToDelete.PhoneNumber);
+        data.append("Role", userToDelete.Role);
 
         await Api.adminUpdateUser(userId, data);
 
         //Cập nhật giao diện
         setUsers((prev) =>
-          prev.map((u) => ((u.UserID || (u as any).userId) === userId ? { ...u, Status: "Khoa" } : u))
+          prev.map((user) => (user.UserID === userId ? { ...user, Status: "Khoa" } : user))
         );
         alert("Đã khóa tài khoản thành công.");
       } catch (error) {
@@ -556,29 +478,26 @@ export default function UserManagementPage() {
   };
 
   const handleToggleStatus = async (userItem: Model.User) => {
-    const user = userItem as any;
-    const newStatus = (user.Status || user.status) === "HoatDong" ? "Khoa" : "HoatDong";
+    const newStatus = userItem.Status === "HoatDong" ? "Khoa" : "HoatDong";
     const actionName = newStatus === "Khoa" ? "KHÓA" : "KÍCH HOẠT";
-    const fName = user.FirstName || user.firstName || "";
-    const lName = user.LastName || user.lastName || "";
-    const uName = (fName + " " + lName).trim() || user.FullName || user.fullName || user.name || "Chưa cập nhật";
+    const uName = userItem.FullName || "Chưa cập nhật";
 
     if (confirm(`Bạn có muốn ${actionName} tài khoản "${uName}"?`)) {
       try {
         const data = new FormData();
         data.append("Status", newStatus);
         data.append("FullName", uName);
-        data.append("Role", user.Role || user.role || "");
-        data.append("Username", user.Username || user.username || "");
-        data.append("PhoneNumber", user.PhoneNumber || user.phoneNumber || "");
+        data.append("Role", userItem.Role);
+        data.append("Username", userItem.Username);
+        data.append("PhoneNumber", userItem.PhoneNumber);
 
-        await Api.adminUpdateUser(user.UserID || user.userId, data);
+        await Api.adminUpdateUser(userItem.UserID, data);
         setUsers((prev) =>
-          prev.map((u) =>
-            (u.UserID || (u as any).userId) === (user.UserID || user.userId) ? { ...u, Status: newStatus } : u
+          prev.map((user) =>
+            user.UserID === userItem.UserID ? { ...user, Status: newStatus } : user
           )
         );
-      } catch (error) {
+      } catch {
         alert("Thao tác thất bại.");
       }
     }
@@ -667,13 +586,12 @@ export default function UserManagementPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
-                {currentUsers.map((uItem) => {
-                  const u = uItem as any;
-                  const uid = u.UserID || u.userId;
-                  const uName = u.FullName || u.fullName || u.name || (((u.FirstName || u.firstName || "") + " " + (u.LastName || u.lastName || "")).trim()) || "";
-                  const uRole = u.Role || u.role || "";
-                  const uStatus = u.Status || u.status || "";
-                  const uAvatar = u.AvatarURL || u.avatarURL || u.avatarUrl || u.avatar_url || "";
+                {currentUsers.map((user) => {
+                  const uid = user.UserID;
+                  const uName = user.FullName;
+                  const uRole = user.Role;
+                  const uStatus = user.Status;
+                  const uAvatar = user.avatar_url || "";
                   return (
                     <tr
                       key={uid}
@@ -696,9 +614,9 @@ export default function UserManagementPage() {
                               {uName}
                             </div>
                             <div className="text-xs text-gray-500">
-                              @{u.Username || u.username}
+                               @{user.Username}
                             </div>
-                            <div className="text-xs text-gray-400">{u.Email || u.email}</div>
+                            <div className="text-xs text-gray-400">{user.Email}</div>
                           </div>
                         </div>
                       </td>
@@ -728,7 +646,7 @@ export default function UserManagementPage() {
                               : "bg-red-100 text-red-700"
                           }
                         `}
-                          onClick={() => handleToggleStatus(u)}
+                          onClick={() => handleToggleStatus(user)}
                           title="Bấm để đổi trạng thái"
                         >
                           {STATUS_LABELS[uStatus] || uStatus}
@@ -736,7 +654,7 @@ export default function UserManagementPage() {
                       </td>
                       <td className="px-6 py-4 text-right space-x-3">
                         <button
-                          onClick={() => handleOpenModal(u)}
+                          onClick={() => handleOpenModal(user)}
                           className="text-blue-600 hover:text-blue-800 font-bold hover:underline text-sm"
                         >
                           Sửa
@@ -792,7 +710,6 @@ export default function UserManagementPage() {
       {isModalOpen && (
         <UserFormModal
           user={selectedUser}
-          specialties={specialties}
           onClose={() => setIsModalOpen(false)}
           onSuccess={handleModalSuccess}
         />

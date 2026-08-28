@@ -1,17 +1,17 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import * as Api from "@/lib/ApiClient";
 import * as Model from "@/lib/model";
 import { handleError } from "@/lib/utils";
 
 const ITEMS_PER_PAGE = 9;
 
-const formatDateTimeStr = (dateStr: any) => {
-  if (!dateStr) return "";
-  const s = dateStr.toString().replace("T", " ");
-  return s.slice(0, 19);
-};
+const getDoctorName = (doctor: Model.Doctor) =>
+  doctor.user?.FullName || "Chưa cập nhật";
+
+const getSpecialtyName = (doctor: Model.Doctor) =>
+  doctor.specialty?.SpecialtyName || "";
 
 interface NewSlotForm {
   doctor_id: number;
@@ -22,7 +22,7 @@ interface NewSlotForm {
 
 export default function ScheduleManagementPage() {
   const [doctors, setDoctors] = useState<Model.Doctor[]>([]);
-  const [slots, setSlots] = useState<Model.AvailabilitySlot[]>([]);
+  const [slots, setSlots] = useState<Model.AdminScheduleSlot[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0],
@@ -41,56 +41,7 @@ export default function ScheduleManagementPage() {
   useEffect(() => {
     const loadDoctors = async () => {
       try {
-        const data = await Api.getDoctors();
-        const normalized = (data || []).map((doc: any) => {
-          const u = doc.user || doc.User || {};
-          const fName = u.FirstName || u.firstName || "";
-          const lName = u.LastName || u.lastName || "";
-          const fullName =
-            (fName + " " + lName).trim() ||
-            u.FullName ||
-            u.fullName ||
-            u.name ||
-            "Chưa cập nhật";
-          return {
-            ...doc,
-            DoctorID: doc.DoctorID || doc.doctorId,
-            SpecialtyID:
-              doc.SpecialtyID ||
-              doc.specialtyId ||
-              doc.specialty?.specialtyId ||
-              doc.specialty?.SpecialtyID,
-            Degree: doc.Degree || doc.degree,
-            YearsOfExperience: doc.YearsOfExperience || doc.yearsOfExperience,
-            ProfileDescription:
-              doc.ProfileDescription || doc.profileDescription,
-            imageURL:
-              doc.imageURL || doc.imageUrl || u.avatar_url || u.avatarURL,
-            user:
-              doc.user || doc.User
-                ? {
-                    ...(doc.user || doc.User),
-                    UserID: u.UserID || u.userId,
-                    FullName: fullName,
-                    Email: u.Email || u.email,
-                    Username: u.Username || u.username,
-                    PhoneNumber: u.PhoneNumber || u.phoneNumber,
-                    Status: u.Status || u.status,
-                    avatar_url: u.avatar_url || u.avatarURL,
-                  }
-                : null,
-            specialty: doc.specialty
-              ? {
-                  ...doc.specialty,
-                  SpecialtyID:
-                    doc.specialty.SpecialtyID || doc.specialty.specialtyId,
-                  SpecialtyName:
-                    doc.specialty.SpecialtyName || doc.specialty.specialtyName,
-                }
-              : null,
-          };
-        });
-        setDoctors(normalized);
+        setDoctors(await Api.getDoctors());
       } catch (error) {
         console.error("Error loading doctors:", error);
         setDoctors([]);
@@ -107,22 +58,13 @@ export default function ScheduleManagementPage() {
     setLoading(true);
     try {
       const docId = parseInt(selectedDoctorId);
-      const data = await Api.getDoctorAvailability(docId);
-      const normalizedSlots = (data || []).map((slot: any) => ({
-        ...slot,
-        SlotID: slot.SlotID || slot.slotId,
-        DoctorID: slot.DoctorID || slot.doctorId || docId,
-        StartTime: formatDateTimeStr(slot.StartTime || slot.startTime),
-        EndTime: formatDateTimeStr(slot.EndTime || slot.endTime),
-        Status: slot.Status || slot.status,
-      }));
-      setSlots(normalizedSlots);
+      setSlots(await Api.getDoctorScheduleAdmin(docId, selectedDate));
     } catch (error) {
       console.error("Lỗi tải lịch:", error);
     } finally {
       setLoading(false);
     }
-  }, [selectedDoctorId]);
+  }, [selectedDate, selectedDoctorId]);
 
   useEffect(() => {
     loadSlots();
@@ -188,8 +130,7 @@ export default function ScheduleManagementPage() {
     }
   };
 
-  const getDoctorInfo = (id: number) =>
-    doctors.find((d) => (d.DoctorID || (d as any).doctorId) === id);
+  const getDoctorInfo = (id: number) => doctors.find((doctor) => doctor.DoctorID === id);
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
@@ -231,23 +172,11 @@ export default function ScheduleManagementPage() {
               onChange={(e) => setSelectedDoctorId(e.target.value)}
             >
               <option value="all">-- Chọn Bác sĩ để xem --</option>
-              {doctors.map((dItem) => {
-                const d = dItem as any;
-                const docId = d.DoctorID || d.doctorId;
-                const u = d.user || d.User || {};
-                const fName = u.FirstName || u.firstName || "";
-                const lName = u.LastName || u.lastName || "";
-                const docName =
-                  (fName + " " + lName).trim() ||
-                  d.user?.FullName ||
-                  d.user?.fullName ||
-                  d.user?.name ||
-                  "Chưa cập nhật";
-                const specName = d.specialty
-                  ? d.specialty.SpecialtyName || d.specialty.specialtyName
-                  : "";
+              {doctors.map((doctor) => {
+                const docName = getDoctorName(doctor);
+                const specName = getSpecialtyName(doctor);
                 return (
-                  <option key={docId} value={docId}>
+                  <option key={doctor.DoctorID} value={doctor.DoctorID}>
                     {docName} {specName ? `(${specName})` : ""}
                   </option>
                 );
@@ -292,36 +221,20 @@ export default function ScheduleManagementPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {currentSlots.map((slotItem) => {
-                  const slot = slotItem as any;
-                  const slotId = slot.SlotID || slot.slotId;
-                  const doc = getDoctorInfo(
-                    slot.DoctorID || slot.doctorId,
-                  ) as any;
-                  const startTime = (slot.StartTime || slot.startTime || "")
+                {currentSlots.map((slot) => {
+                  const doc = getDoctorInfo(slot.DoctorID);
+                  const startTime = slot.StartTime
                     .split(" ")[1]
                     ?.slice(0, 5);
-                  const endTime = (slot.EndTime || slot.endTime || "")
+                  const endTime = slot.EndTime
                     .split(" ")[1]
                     ?.slice(0, 5);
-                  const docName = doc
-                    ? (
-                        (doc.user?.FirstName || doc.user?.firstName || "") +
-                        " " +
-                        (doc.user?.LastName || doc.user?.lastName || "")
-                      ).trim() ||
-                      doc.user?.FullName ||
-                      doc.user?.fullName ||
-                      doc.user?.name ||
-                      "N/A"
-                    : "N/A";
-                  const specName = doc?.specialty
-                    ? doc.specialty.SpecialtyName || doc.specialty.specialtyName
-                    : "---";
-                  const slotStatus = slot.Status || slot.status || "Available";
+                  const docName = doc ? getDoctorName(doc) : "N/A";
+                  const specName = doc ? getSpecialtyName(doc) : "---";
+                  const slotStatus = slot.Status || "Available";
                   return (
                     <div
-                      key={slotId}
+                      key={slot.SlotID}
                       className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3">
@@ -352,7 +265,7 @@ export default function ScheduleManagementPage() {
                         )}
                         {slotStatus === "Available" && (
                           <button
-                            onClick={() => handleDeleteSlot(slotId, slotStatus)}
+                            onClick={() => handleDeleteSlot(slot.SlotID, slotStatus)}
                             className="text-red-400 hover:text-red-600 text-xs font-medium hover:underline"
                           >
                             Xóa
@@ -423,23 +336,11 @@ export default function ScheduleManagementPage() {
                   }
                 >
                   <option value={0}>-- Chọn bác sĩ --</option>
-                  {doctors.map((dItem) => {
-                    const d = dItem as any;
-                    const docId = d.DoctorID || d.doctorId;
-                    const u = d.user || d.User || {};
-                    const fName = u.FirstName || u.firstName || "";
-                    const lName = u.LastName || u.lastName || "";
-                    const docName =
-                      (fName + " " + lName).trim() ||
-                      d.user?.FullName ||
-                      d.user?.fullName ||
-                      d.user?.name ||
-                      "Chưa cập nhật";
-                    const specName = d.specialty
-                      ? d.specialty.SpecialtyName || d.specialty.specialtyName
-                      : "";
+                  {doctors.map((doctor) => {
+                    const docName = getDoctorName(doctor);
+                    const specName = getSpecialtyName(doctor);
                     return (
-                      <option key={docId} value={docId}>
+                      <option key={doctor.DoctorID} value={doctor.DoctorID}>
                         {docName} {specName ? `- ${specName}` : ""}
                       </option>
                     );

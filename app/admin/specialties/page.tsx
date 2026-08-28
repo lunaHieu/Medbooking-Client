@@ -21,21 +21,20 @@ const SpecialtyFormModal: React.FC<SpecialtyFormProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const spec = specialty as any;
   const isEdit = !!specialty;
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
-    SpecialtyName: spec?.SpecialtyName || spec?.specialtyName || "",
-    Description: spec?.Description || spec?.description || "",
+    SpecialtyName: specialty?.SpecialtyName || "",
+    Description: specialty?.Description || "",
   });
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Logic preview ảnh: Nếu có ảnh cũ -> lấy link từ DB (qua getFullImageUrl), nếu không -> rỗng
   const [previewUrl, setPreviewUrl] = useState<string>(
-    (spec?.imageURL || spec?.imageUrl || spec?.imagePath) 
-      ? getFullImageUrl(spec.imageURL || spec.imageUrl || spec.imagePath || "") 
+    specialty?.imageURL
+      ? getFullImageUrl(specialty.imageURL)
       : ""
   );
 
@@ -68,8 +67,8 @@ const SpecialtyFormModal: React.FC<SpecialtyFormProps> = ({
         data.append("imageURL", selectedFile);
       }
 
-      if (isEdit && spec) {
-        await Api.adminUpdateSpecialty(spec.SpecialtyID || spec.specialtyId || spec.id, data);
+      if (isEdit && specialty) {
+        await Api.adminUpdateSpecialty(specialty.SpecialtyID, data);
         alert("Cập nhật chuyên khoa thành công!");
       } else {
         await Api.adminCreateSpecialty(data);
@@ -214,15 +213,7 @@ export default function SpecialtyManagementPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const data = await Api.getSpecialties();
-      const normalizedSpecs = (data || []).map((s: any) => ({
-        ...s,
-        SpecialtyID: s.SpecialtyID || s.specialtyId,
-        SpecialtyName: s.SpecialtyName || s.specialtyName,
-        Description: s.Description || s.description,
-        imageURL: s.imageURL || s.imageUrl || s.imagePath
-      }));
-      setSpecialties(normalizedSpecs);
+      setSpecialties(await Api.getSpecialties());
     } catch (error) {
       console.error("Lỗi tải dữ liệu:", error);
     } finally {
@@ -243,8 +234,8 @@ export default function SpecialtyManagementPage() {
     const query = (searchQuery || "").toLowerCase();
     return specialties.filter(
       (s) =>
-        (s?.SpecialtyName || (s as any)?.specialtyName || "").toLowerCase().includes(query) ||
-        (s?.Description || (s as any)?.description || "").toLowerCase().includes(query)
+        (s.SpecialtyName || "").toLowerCase().includes(query) ||
+        (s.Description || "").toLowerCase().includes(query)
     );
   }, [specialties, searchQuery]);
 
@@ -277,7 +268,7 @@ export default function SpecialtyManagementPage() {
       try {
         await Api.adminDeleteSpecialty(specialtyId);
         setSpecialties((prev) =>
-          prev.filter((s) => (s.SpecialtyID || (s as any).specialtyId || (s as any).id) !== specialtyId)
+          prev.filter((specialty) => specialty.SpecialtyID !== specialtyId)
         );
         alert("Đã xóa thành công.");
       } catch (error) {
@@ -357,12 +348,11 @@ export default function SpecialtyManagementPage() {
                   </td>
                 </tr>
               ) : (
-               currentSpecialties.map((specialty) => {
-                  const spec = specialty as any;
-                  const specId = spec.SpecialtyID || spec.specialtyId || spec.id;
-                  const specName = spec.SpecialtyName || spec.specialtyName || "";
-                  const specDesc = spec.Description || spec.description || "";
-                  const specImg = spec.imageURL || spec.imageUrl || spec.imagePath || "";
+                currentSpecialties.map((specialty) => {
+                  const specId = specialty.SpecialtyID;
+                  const specName = specialty.SpecialtyName;
+                  const specDesc = specialty.Description || "";
+                  const specImg = specialty.imageURL || "";
                   return (
                     <tr
                       key={specId}

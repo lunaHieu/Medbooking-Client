@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
 import { AxiosError } from "axios";
 import * as Api from "@/lib/ApiClient";
@@ -21,24 +21,23 @@ const ServiceFormModal: React.FC<ServiceFormProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const srv = service as any;
   const isEdit = !!service;
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
-    ServiceName: srv?.ServiceName || srv?.serviceName || "",
-    Description: srv?.Description || srv?.description || "",
-    EstimatedDuration: (srv?.EstimatedDuration || srv?.estimatedDuration || "15").toString(),
-    Price: (srv?.Price || srv?.price || "0").toString(),
-    SpecialtyID: srv?.SpecialtyID || srv?.specialtyId || specialties[0]?.SpecialtyID || (specialties[0] as any)?.specialtyId || 0,
+    ServiceName: service?.ServiceName || "",
+    Description: service?.Description || "",
+    EstimatedDuration: (service?.EstimatedDuration || "15").toString(),
+    Price: (service?.Price || "0").toString(),
+    SpecialtyID: service?.SpecialtyID || specialties[0]?.SpecialtyID || 0,
   });
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Preview ảnh: Ưu tiên ảnh từ DB
   const [previewUrl, setPreviewUrl] = useState<string>(
-    (srv?.imageURL || srv?.imageUrl || srv?.imagePath) 
-      ? getFullImageUrl(srv.imageURL || srv.imageUrl || srv.imagePath || "") 
+    service?.imageURL
+      ? getFullImageUrl(service.imageURL)
       : ""
   );
 
@@ -85,9 +84,8 @@ const ServiceFormModal: React.FC<ServiceFormProps> = ({
         data.append("imageURL", selectedFile); // Key là 'image'
       }
 
-      if (isEdit && srv) {
-        data.append("_method", "PUT"); // Method Spoofing cho Laravel
-        await Api.adminUpdateService(srv.ServiceID || srv.serviceId, data);
+      if (isEdit && service) {
+        await Api.adminUpdateService(service.ServiceID, data);
         alert("Cập nhật dịch vụ thành công!");
       } else {
         await Api.adminCreateService(data);
@@ -279,44 +277,30 @@ export default function ServiceManagementPage() {
   const ITEMS_PER_PAGE = 10;
 
   // Load Data
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [servicesData, specialtiesData] = await Promise.all([
-        Api.adminGetAllServices(searchQuery),
+        Api.adminGetAllServices(),
         Api.getSpecialties(),
       ]);
-      const normalizedServices = (servicesData || []).map((s: any) => ({
-        ...s,
-        ServiceID: s.ServiceID || s.serviceId,
-        ServiceName: s.ServiceName || s.serviceName,
-        SpecialtyID: s.SpecialtyID || s.specialtyId,
-        Price: s.Price || s.price,
-        EstimatedDuration: s.EstimatedDuration || s.estimatedDuration,
-        imageURL: s.imageURL || s.imageUrl || s.imagePath
-      }));
-      const normalizedSpecs = (specialtiesData || []).map((sp: any) => ({
-        ...sp,
-        SpecialtyID: sp.SpecialtyID || sp.specialtyId,
-        SpecialtyName: sp.SpecialtyName || sp.specialtyName
-      }));
-      setServices(normalizedServices);
-      setSpecialties(normalizedSpecs);
+      setServices(servicesData);
+      setSpecialties(specialtiesData);
     } catch (error) {
       console.error("Lỗi tải dữ liệu:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   // Map Specialty Name
   const specialtyMap = useMemo(() => {
     return specialties.reduce((map, s) => {
-      map.set(s.SpecialtyID || (s as any).specialtyId, s.SpecialtyName || (s as any).specialtyName);
+      map.set(s.SpecialtyID, s.SpecialtyName);
       return map;
     }, new Map<number, string>());
   }, [specialties]);
@@ -327,9 +311,9 @@ export default function ServiceManagementPage() {
     const query = (searchQuery || "").toLowerCase();
     return services.filter(
       (s) =>
-        (s?.ServiceName || (s as any)?.serviceName || "").toLowerCase().includes(query) ||
-        (s?.Description || (s as any)?.description || "").toLowerCase().includes(query) ||
-        (specialtyMap.get(s.SpecialtyID || (s as any).specialtyId) || "").toLowerCase().includes(query)
+        s.ServiceName.toLowerCase().includes(query) ||
+        (s.Description || "").toLowerCase().includes(query) ||
+        (specialtyMap.get(s.SpecialtyID) || "").toLowerCase().includes(query)
     );
   }, [services, searchQuery, specialtyMap]);
 
@@ -354,7 +338,7 @@ export default function ServiceManagementPage() {
     if (confirm("Bạn có chắc chắn muốn xóa dịch vụ này?")) {
       try {
         await Api.adminDeleteService(id);
-        setServices((prev) => prev.filter((s) => (s.ServiceID || (s as any).serviceId) !== id));
+        setServices((prev) => prev.filter((service) => service.ServiceID !== id));
         alert("Đã xóa thành công.");
       } catch (error) {
         console.error(error);
@@ -433,12 +417,11 @@ export default function ServiceManagementPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {currentServices.map((service) => {
-                  const srv = service as any;
-                  const srvId = srv.ServiceID || srv.serviceId;
-                  const srvName = srv.ServiceName || srv.serviceName || "";
-                  const srvImg = srv.imageURL || srv.imageUrl || srv.imagePath || "";
-                  const srvPrice = srv.Price || srv.price || 0;
-                  const srvDuration = srv.EstimatedDuration || srv.estimatedDuration || 0;
+                  const srvId = service.ServiceID;
+                  const srvName = service.ServiceName;
+                  const srvImg = service.imageURL || "";
+                  const srvPrice = service.Price;
+                  const srvDuration = service.EstimatedDuration;
                   return (
                     <tr
                       key={srvId}
@@ -457,7 +440,7 @@ export default function ServiceManagementPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-bold">
-                          {specialtyMap.get(srv.SpecialtyID || srv.specialtyId) ||
+                           {specialtyMap.get(service.SpecialtyID) ||
                             "Chưa phân loại"}
                         </span>
                       </td>

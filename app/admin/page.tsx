@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FaUserMd, FaHospital, FaUsers, FaClipboardList, FaDollarSign, FaStar, FaCog, FaChartLine } from 'react-icons/fa';
+import { FaUserMd, FaHospital, FaUsers, FaClipboardList, FaDollarSign, FaStar, FaCog } from 'react-icons/fa';
 const cards = [
     { title: "Quản lí Tài khoản", href: "/admin/users", icon: FaUsers, description: "Tạo, sửa, vô hiệu hóa tài khoản bác sĩ, nhân viên và bệnh nhân." },
     { title: "Quản lí Bác sĩ", href: "/admin/doctor", icon: FaUserMd, description: "Quản lí hồ sơ, bằng cấp, và phân công chuyên khoa cho bác sĩ." },
