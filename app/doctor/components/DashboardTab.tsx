@@ -6,7 +6,12 @@ import TodayAppointments from "./TodayAppointments";
 import WaitingPatients from "./WaitingPatients";
 import ExamInProgress from "./ExamInProgress";
 import MedicalExamForm from "./MedicalExamForm";
-import type { Appointment, Patient, MedicalRecord, PatientDetail, MedicalExamFormData } from "@/lib/model";
+import type {
+  DoctorDashboardAppointment as Appointment,
+  DoctorQueuePatient as Patient,
+  DoctorDashboardMedicalRecord as MedicalRecord,
+  PatientDetail,
+} from "@/lib/model";
 
 interface DashboardTabProps {
   dashboardStats: {
@@ -41,6 +46,7 @@ export default function DashboardTab({
   getPriorityColor,
   getPriorityText,
   onViewPatientDetail,
+  handleStartExam: onStartExam,
 }: DashboardTabProps) {
   // STATE QUẢN LÝ DỮ LIỆU
   const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
@@ -93,34 +99,12 @@ export default function DashboardTab({
   };
 
   // Xử lý bắt đầu khám
-  const handleStartExam = (patientDetail: PatientDetail) => {
-    console.log('👨‍⚕️ Bắt đầu khám cho:', patientDetail.name);
-
-    // Update state local 
-    // setAppointments(prev => 
-    //   prev.map(appt => {
-    //     const isPatientAppointment = 
-    //       appt.patientId === patientDetail.id || 
-    //       appt.id === patientDetail.id ||
-    //       appt.patientName === patientDetail.name;
-
-    //     if (isPatientAppointment && (appt.status === 'waiting' || appt.status === 'checked_in')) {
-    //       return { ...appt, status: 'in_progress' as const };
-    //     }
-    //     return appt;
-    //   })
-    // );
-
-    setWaitingPatients(prev =>
-      prev.filter(p => p.id !== patientDetail.id)
-    );
-
-    setSelectedPatientForExam(patientDetail);
-    setShowExamForm(true);
+  const handleStartExam = async (patientDetail: PatientDetail) => {
+    await onStartExam(patientDetail);
   };
 
   // Xử lý khi hoàn thành khám
-  const handleExamComplete = (formData: MedicalExamFormData) => {
+  const handleExamComplete = () => {
     if (!selectedPatientForExam) return;
 
     console.log('✅ Hoàn thành khám cho:', selectedPatientForExam.name);
@@ -197,27 +181,6 @@ export default function DashboardTab({
   // Tính toán các giá trị cần thiết 
   const inProgressCount = appointments.filter(a => a.status === "in_progress").length;
   
-  const getLocalDateString = (dateInput: any) => {
-    if (!dateInput) return "";
-    try {
-      const date = new Date(dateInput);
-      if (isNaN(date.getTime())) return "";
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    } catch {
-      return "";
-    }
-  };
-
-  const today = getLocalDateString(new Date());
-  const todayAppointments = appointments.filter(appt => {
-    if (!appt.appointmentTime) return false;
-    const apptDate = getLocalDateString(appt.appointmentTime);
-    return apptDate === today;
-  });
-
   // Tính paginated appointments 
   const filteredAppointments = appointments.filter(appt => {
     if (searchTerm && !(appt?.patientName || "").toLowerCase().includes((searchTerm || "").toLowerCase())) {

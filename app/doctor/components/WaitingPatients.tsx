@@ -1,12 +1,17 @@
 "use client"
 
-import { User, Clock } from "lucide-react"
-import type { Patient, PatientDetail, MedicalRecord } from "@/lib/model"
+import { User } from "lucide-react"
+import type { ReactNode } from "react"
+import type {
+  DoctorQueuePatient as Patient,
+  PatientDetail,
+  DoctorDashboardMedicalRecord as MedicalRecord,
+} from "@/lib/model"
 
 interface WaitingPatientsProps {
   waitingPatients: Patient[]
   medicalRecords: MedicalRecord[]
-  getStatusInfo: (status: string) => any
+  getStatusInfo: (status: string) => { cls: string; text: string; icon?: ReactNode }
   getPriorityColor: (priority: string) => string
   getPriorityText: (priority: string) => string
   handleViewPatientDetail: (id: number) => void
@@ -15,12 +20,10 @@ interface WaitingPatientsProps {
 
 export default function WaitingPatients({
   waitingPatients,
-  medicalRecords,
   getStatusInfo,
   getPriorityColor,
   getPriorityText,
   handleViewPatientDetail,
-  handleStartExam
 }: WaitingPatientsProps) {
   const checkedInPatients = waitingPatients.filter(patient => patient.status === "CheckedIn")
 

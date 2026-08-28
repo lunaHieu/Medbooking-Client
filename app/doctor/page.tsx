@@ -5,21 +5,20 @@ import DashboardTab from "./components/DashboardTab";
 import PatientDetailModal from "./components/PatientDetailModal";
 import MedicalExamForm from "./components/MedicalExamForm";
 import LoadingState from "./components/LoadingState";
-import ErrorState from "./components/ErrorState";
 
 import { RefreshCw } from "lucide-react";
 import { doctorService } from "../services/doctorService";
 import type {
-  Appointment,
-  Patient,
+  DoctorDashboardAppointment as Appointment,
+  DoctorQueuePatient as Patient,
   PatientDetail,
+  DoctorDashboardMedicalRecord as MedicalRecord,
   MedicalExamFormData
 } from "@/lib/model";
 
 export default function DoctorDashboardPage() {
   // STATES 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState("Đang tải dữ liệu...");
 
   const [dashboardStats, setDashboardStats] = useState({
@@ -32,7 +31,7 @@ export default function DoctorDashboardPage() {
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [waitingPatients, setWaitingPatients] = useState<Patient[]>([]);
-  const [medicalRecords, setMedicalRecords] = useState<any[]>([]);
+  const [medicalRecords] = useState<MedicalRecord[]>([]);
 
   // Modal states
   const [selectedPatient, setSelectedPatient] = useState<PatientDetail | null>(null);
@@ -65,7 +64,7 @@ export default function DoctorDashboardPage() {
     setLoadingMessage("Đang tải lại dữ liệu...");
     try {
       await loadDashboardData();
-    } catch (err) {
+    } catch {
       alert("Không thể làm mới dữ liệu. Vui lòng thử lại!");
     } finally {
       setLoading(false);
@@ -129,10 +128,8 @@ export default function DoctorDashboardPage() {
         setWaitingPatients([]);
       }
 
-      setError(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[DEBUG] Lỗi Exception:", err);
-      setError("Không thể kết nối đến server");
       // useFallbackData();
     } finally {
       setLoading(false);
@@ -218,7 +215,6 @@ export default function DoctorDashboardPage() {
     }
   };
 
-  // Sửa tham số truyền vào từ FormData thành MedicalExamFormData
   const handleCompleteExam = async (formDataFromChild: MedicalExamFormData) => {
     const appointmentId = currentExamPatient?.appointmentId || currentExamPatient?.id;
 
@@ -230,44 +226,30 @@ export default function DoctorDashboardPage() {
     try {
       setLoading(true);
 
-      // BƯỚC QUAN TRỌNG: Chuyển đổi Object sang FormData để hết lỗi đỏ
-      const formData = new FormData();
+      const notes = [
+        formDataFromChild.notes,
+        formDataFromChild.clinicalNotes,
+        formDataFromChild.currentSymptoms ? `Triệu chứng hiện tại: ${formDataFromChild.currentSymptoms}` : "",
+      ].filter(Boolean).join("\n\n");
 
-      // Thêm các trường văn bản
-      formData.append('diagnosis', formDataFromChild.diagnosis);
-      formData.append('clinicalNotes', formDataFromChild.clinicalNotes || '');
-      formData.append('notes', formDataFromChild.notes || '');
-      formData.append('currentSymptoms', formDataFromChild.currentSymptoms || '');
+      const recordResponse = await doctorService.createMedicalRecord({
+        appointmentId,
+        diagnosis: formDataFromChild.diagnosis,
+        notes,
+      });
 
-      // Thêm ID cuộc hẹn để Backend biết bệnh án này của ai
-      formData.append('appointment_id', appointmentId.toString());
-
-      // Với mảng hoặc object phức tạp (như đơn thuốc), phải chuyển sang chuỗi JSON
-      if (formDataFromChild.prescriptions) {
-        formData.append('prescriptions', JSON.stringify(formDataFromChild.prescriptions));
+      const recordId = recordResponse.data?.RecordID;
+      if (!recordResponse.success || !recordId) {
+        throw new Error(recordResponse.message || "Server không trả về mã bệnh án");
       }
 
-      if (formDataFromChild.vitalSigns) {
-        formData.append('vitalSigns', JSON.stringify(formDataFromChild.vitalSigns));
+      for (const file of formDataFromChild.attachments) {
+        const uploadResponse = await doctorService.uploadExamResult(recordId, file);
+        if (!uploadResponse.success) {
+          throw new Error(uploadResponse.message || `Không thể tải tệp ${file.name}`);
+        }
       }
 
-      // Nếu có file đính kèm
-      if (formDataFromChild.attachments && formDataFromChild.attachments.length > 0) {
-        formDataFromChild.attachments.forEach((file) => {
-          formData.append('attachments[]', file);
-        });
-      }
-
-      // Gửi biến 'formData' (đã đúng kiểu dữ liệu) vào service
-      const recordResponse = await doctorService.createMedicalRecord(formData);
-
-      if (!recordResponse.success) {
-        alert("Lưu bệnh án thất bại: " + recordResponse.message);
-        setLoading(false);
-        return;
-      }
-
-      // 2. Đổi trạng thái cuộc hẹn sang 'Completed'
       const completeSuccess = await doctorService.completeExam(appointmentId);
 
       if (completeSuccess) {
@@ -279,9 +261,9 @@ export default function DoctorDashboardPage() {
         alert("Đã lưu bệnh án nhưng LỖI cập nhật trạng thái 'Đã khám xong'.");
       }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Lỗi hệ thống tại file Cha:", err);
-      alert("Lỗi hệ thống: " + (err.message || "Không xác định"));
+      alert("Lỗi hệ thống: " + (err instanceof Error ? err.message : "Không xác định"));
     } finally {
       setLoading(false);
     }

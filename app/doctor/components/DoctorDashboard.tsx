@@ -1,15 +1,30 @@
 // app/Doctor/components/DoctorDashboard.tsx
-interface DoctorDashboardProps {
-  dashboardData?: any;
-  queueData?: any;
-  medicalRecords?: any;
+interface DashboardStats {
+  total_appointments?: number;
+  today_appointments?: number;
+  pending_appointments?: number;
+  completed_appointments?: number;
 }
 
-export default function DoctorDashboard({ 
-  dashboardData, 
-  queueData, 
-  medicalRecords 
-}: DoctorDashboardProps) {
+interface DashboardData {
+  data?: { stats?: DashboardStats };
+}
+
+interface QueueItem {
+  patient?: string;
+  status?: string;
+}
+
+interface QueueData {
+  data?: QueueItem[];
+}
+
+interface DoctorDashboardProps {
+  dashboardData?: DashboardData;
+  queueData?: QueueData;
+}
+
+export default function DoctorDashboard({ dashboardData, queueData }: DoctorDashboardProps) {
   
   const stats = dashboardData?.data?.stats || {};
   
@@ -43,7 +58,7 @@ export default function DoctorDashboard({
         <h2 className="text-xl font-bold mb-4">Hàng chờ bệnh nhân</h2>
         {queueData?.data?.length ? (
           <ul className="space-y-2">
-            {queueData.data.map((item: any, index: number) => (
+            {queueData.data.map((item, index) => (
               <li key={index} className="flex justify-between items-center p-3 border rounded">
                 <span>{item.patient || `Bệnh nhân ${index + 1}`}</span>
                 <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">

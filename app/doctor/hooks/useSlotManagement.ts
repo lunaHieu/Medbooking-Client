@@ -16,22 +16,30 @@ export const useSlotManagement = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadSlots = useCallback(async (startDate?: Date, endDate?: Date) => {
+  const loadSlots = useCallback(async (startDate?: Date) => {
     try {
       setLoading(true);
       setError(null);
-      
-      const start = startDate || new Date();
-      const end = endDate || new Date();
-      end.setDate(end.getDate() + 7); // Default to 1 week
-      
-      // const response = await doctorService.getSchedule(start, end);
-      
-      // if (response.success) {
-      //   setSlots(response.data);
-      // } else {
-      //   setError('Không thể tải lịch làm việc');
-      // }
+
+      const date = startDate || new Date();
+      const targetDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      const response = await doctorService.getMySlots(targetDate);
+      if (!response.success) {
+        setError("Không thể tải lịch làm việc");
+        return;
+      }
+
+      setSlots(response.data.map((slot) => ({
+        id: slot.SlotID,
+        date: slot.StartTime.slice(0, 10),
+        start_time: slot.StartTime.slice(11, 16),
+        end_time: slot.EndTime.slice(11, 16),
+        status: slot.Status.toLowerCase() === "booked"
+          ? "booked"
+          : slot.Status.toLowerCase() === "blocked"
+            ? "blocked"
+            : "available",
+      })));
     } catch (err) {
       setError('Có lỗi xảy ra khi tải lịch làm việc');
       console.error(err);
@@ -50,16 +58,8 @@ export const useSlotManagement = () => {
       setLoading(true);
       setError(null);
       
-      // const response = await doctorService.createSlot(slotData);
-      
-      // if (response?.success) {
-      //   // Reload slots after creation
-      //   await loadSlots();
-      //   return { success: true, data: response };
-      // } else {
-      //   setError('Không thể tạo slot');
-      //   return { success: false, error: 'Không thể tạo slot' };
-      // }
+      await doctorService.createSlot(slotData);
+      return { success: true };
     } catch (err) {
       const errorMsg = 'Có lỗi xảy ra khi tạo slot';
       setError(errorMsg);
@@ -68,23 +68,18 @@ export const useSlotManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [loadSlots]);
+  }, []);
 
   const deleteSlot = useCallback(async (slotId: number) => {
     try {
       setLoading(true);
       setError(null);
       
-      // const response = await doctorService.deleteSlot(slotId);
-      
-      // if (response?.success) {
-      //   // Update local state immediately
-      //   setSlots(prev => prev.filter(slot => slot.id !== slotId));
-      //   return { success: true };
-      // } else {
-      //   setError('Không thể xóa slot');
-      //   return { success: false, error: 'Không thể xóa slot' };
-      // }
+      await doctorService.deleteSlot(slotId);
+      setSlots(prev => prev.map(slot =>
+        slot.id === slotId ? { ...slot, status: "blocked" } : slot
+      ));
+      return { success: true };
     } catch (err) {
       const errorMsg = 'Có lỗi xảy ra khi xóa slot';
       setError(errorMsg);

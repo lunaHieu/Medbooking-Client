@@ -1,11 +1,31 @@
 import { Menu, LogOut, LayoutDashboard, Calendar, FileText, Settings } from "lucide-react"
 
+type DoctorTab = "dashboard" | "schedule" | "records" | "settings"
+
+interface CurrentDoctor {
+  FullName: string
+  specialty: {
+    SpecialtyName: string
+  }
+}
+
+const menuItems: Array<{
+  icon: typeof LayoutDashboard
+  label: string
+  value: DoctorTab
+}> = [
+  { icon: LayoutDashboard, label: "Bảng điều khiển", value: "dashboard" },
+  { icon: Calendar, label: "Lịch của tôi", value: "schedule" },
+  { icon: FileText, label: "Bệnh án", value: "records" },
+  { icon: Settings, label: "Cài đặt", value: "settings" },
+]
+
 interface DoctorSidebarProps {
   sidebarOpen: boolean
   setSidebarOpen: (open: boolean) => void
-  activeTab: string
-  setActiveTab: (tab: "dashboard" | "schedule" | "records" | "settings") => void
-  currentDoctor: any
+  activeTab: DoctorTab
+  setActiveTab: (tab: DoctorTab) => void
+  currentDoctor: CurrentDoctor
   handleLogout: () => void
 }
 
@@ -26,8 +46,8 @@ export default function DoctorSidebar({
               BS
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-slate-900">Bs. {currentDoctor?.FullName || currentDoctor?.name || 'Nguyễn Văn A'}</h3>
-              <p className="text-xs text-slate-500">{currentDoctor?.specialty?.SpecialtyName || currentDoctor?.specialty || 'Bác sĩ'}</p>
+              <h3 className="text-sm font-semibold text-slate-900">Bs. {currentDoctor.FullName}</h3>
+              <p className="text-xs text-slate-500">{currentDoctor.specialty.SpecialtyName}</p>
             </div>
           </div>
           <button
@@ -39,15 +59,10 @@ export default function DoctorSidebar({
         </div>
 
         <nav className="space-y-2">
-          {[
-            { icon: LayoutDashboard, label: "Bảng điều khiển", value: "dashboard" },
-            { icon: Calendar, label: "Lịch của tôi", value: "schedule" },
-            { icon: FileText, label: "Bệnh án", value: "records" },
-            { icon: Settings, label: "Cài đặt", value: "settings" },
-          ].map((item) => (
+          {menuItems.map((item) => (
             <button
               key={item.value}
-              onClick={() => setActiveTab(item.value as any)}
+              onClick={() => setActiveTab(item.value)}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${
                 activeTab === item.value
                   ? "bg-blue-50 text-blue-600"

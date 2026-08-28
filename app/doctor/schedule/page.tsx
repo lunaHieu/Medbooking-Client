@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import {
   Calendar,
   Download,
@@ -11,7 +11,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  User,
   AlertCircle,
   CheckCircle,
   XCircle,
@@ -20,12 +19,12 @@ import {
   Users
 } from "lucide-react"
 import {
-  format, startOfWeek, endOfWeek, addWeeks, subWeeks, startOfDay, endOfDay, addDays, isToday, isSameDay, parseISO, isWeekend, getDay, getWeek, getMonth, getYear
+  format, startOfWeek, endOfWeek, isSameDay, parseISO, getMonth, getYear
 } from 'date-fns'
 import { vi } from 'date-fns/locale'
-import type { Appointment, Patient } from "@/lib/model"
+import type { Appointment, MedicalRecord } from "@/lib/model"
 import { doctorService } from "@/app/services/doctorService";
-import { FaPhone, FaPhoneAlt } from "react-icons/fa";
+import { FaPhoneAlt } from "react-icons/fa";
 
 
 // ==================== COMPONENTS ====================
@@ -41,41 +40,29 @@ function LoadingState({ message }: { message: string }) {
 function AppointmentDetailModal({
   appointment,
   onClose,
-  onStartExam,
 }: {
   appointment: Appointment | null
   onClose: () => void
-  onStartExam: (id: number) => void
 }) {
   const [activeTab, setActiveTab] = useState<"info" | "history">("info")
-  const [patientHistory, setPatientHistory] = useState<any[]>([])
+  const [patientHistory, setPatientHistory] = useState<MedicalRecord[]>([])
 
   useEffect(() => {
-    if (appointment) {
-      // Mock patient history
-      const mockHistory = [
-        {
-          id: 1,
-          date: "2025-10-15",
-          diagnosis: "Viêm họng cấp",
-          treatment: "Kháng sinh 5 ngày, nghỉ ngơi",
-          prescriptions: [
-            { medicine: "Amoxicillin", dosage: "500mg", frequency: "3 lần/ngày" },
-            { medicine: "Paracetamol", dosage: "500mg", frequency: "Khi sốt" }
-          ]
-        },
-        {
-          id: 2,
-          date: "2025-08-22",
-          diagnosis: "Rối loạn tiêu hóa",
-          treatment: "Men tiêu hóa, ăn uống điều độ",
-          prescriptions: [
-            { medicine: "Smecta", dosage: "1 gói", frequency: "3 lần/ngày" }
-          ]
-        }
-      ];
-      setPatientHistory(mockHistory);
+    if (!appointment?.PatientID) {
+      setPatientHistory([])
+      return
     }
+
+    let active = true
+    doctorService.getPatientHistory(appointment.PatientID)
+      .then((response) => {
+        if (active) setPatientHistory(response.success ? response.data : [])
+      })
+      .catch(() => {
+        if (active) setPatientHistory([])
+      })
+
+    return () => { active = false }
   }, [appointment])
 
   if (!appointment) return null
@@ -88,7 +75,7 @@ function AppointmentDetailModal({
           icon: <Clock className="w-4 h-4" />,
           text: "Đã check-in"
         }
-      case "InProcess":
+      case "InProgress":
         return {
           cls: "bg-blue-100 text-blue-800 border-blue-200",
           icon: <Loader2 className="w-4 h-4 animate-spin" />,
@@ -112,21 +99,6 @@ function AppointmentDetailModal({
           icon: <AlertCircle className="w-4 h-4" />,
           text: "Chờ"
         }
-    }
-  }
-
-  const getPriorityInfo = (priority: string) => {
-    switch (priority) {
-      case "emergency":
-        return { cls: "bg-red-100 text-red-800 border-red-200", text: "🚨 Cấp cứu" }
-      case "high":
-        return { cls: "bg-orange-100 text-orange-800 border-orange-200", text: "⚠️ Ưu tiên cao" }
-      case "medium":
-        return { cls: "bg-yellow-100 text-yellow-800 border-yellow-200", text: "Ưu tiên trung bình" }
-      case "low":
-        return { cls: "bg-blue-100 text-blue-800 border-blue-200", text: "Ưu tiên thấp" }
-      default:
-        return { cls: "bg-gray-100 text-gray-800 border-gray-200", text: "Bình thường" }
     }
   }
 
@@ -173,10 +145,10 @@ function AppointmentDetailModal({
               {/* Patient Info */}
               <div className="flex items-start gap-4">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-xl">
-                  {(appointment.patientName || appointment.patient?.FullName || (appointment.patient as any)?.fullName || (appointment.patient as any)?.name || ((( (appointment.patient as any)?.FirstName || (appointment.patient as any)?.firstName || "") + " " + ((appointment.patient as any)?.LastName || (appointment.patient as any)?.lastName || "")).trim()) || "P").charAt(0).toUpperCase()}
+                   {(appointment.PatientName || appointment.patient?.FullName || "P").charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900">{appointment.patientName || appointment.patient?.FullName || (appointment.patient as any)?.fullName || (appointment.patient as any)?.name || ((( (appointment.patient as any)?.FirstName || (appointment.patient as any)?.firstName || "") + " " + ((appointment.patient as any)?.LastName || (appointment.patient as any)?.lastName || "")).trim()) || "Bệnh nhân không tên"}</h3>
+                   <h3 className="text-lg font-semibold text-gray-900">{appointment.PatientName || appointment.patient?.FullName || "Bệnh nhân không tên"}</h3>
                   <p className="flex items-center gap-2 text-sm text-gray-600">
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
                     <span className="font-medium">Giới tính:</span> {appointment.patient?.Gender}
@@ -267,27 +239,14 @@ function AppointmentDetailModal({
                 </div>
               ) : (
                 patientHistory.map((record) => (
-                  <div key={record.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                   <div key={record.RecordID} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                     <div className="flex justify-between items-start mb-2">
-                      <span className="font-semibold text-gray-900">{record.diagnosis}</span>
+                       <span className="font-semibold text-gray-900">{record.Diagnosis}</span>
                       <span className="text-sm text-gray-500">
-                        {format(parseISO(record.date), 'dd/MM/yyyy')}
+                         {format(parseISO(record.created_at), 'dd/MM/yyyy')}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600 mb-3">{record.treatment}</p>
-                    {record.prescriptions?.length > 0 && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 mb-1">Đơn thuốc:</p>
-                        <ul className="text-sm text-gray-600 space-y-1">
-                          {record.prescriptions.map((p: any, idx: number) => (
-                            <li key={idx} className="flex gap-2">
-                              <span>• {p.medicine}</span>
-                              <span className="text-gray-500">({p.dosage} - {p.frequency})</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                     <p className="text-sm text-gray-600 mb-3">{record.Notes || "Không có ghi chú"}</p>
                   </div>
                 ))
               )}
@@ -317,7 +276,6 @@ export default function SchedulePage() {
   const [filterStatus, setFilterStatus] = useState("all")
   const [searchTerm, setSearchTerm] = useState("")
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [patients, setPatients] = useState<Patient[]>([])
   const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
@@ -334,19 +292,9 @@ export default function SchedulePage() {
   const fetchAppointments = async () => {
     setLoading(true);
     try {
-      const res = await doctorService.getSchedule();
-
-      // Kiểm tra nếu res là mảng (vì Service có thể đã return response.data)
-      if (Array.isArray(res)) {
-        console.log("Dữ liệu là mảng, số lượng:", res.length);
-        setAppointments(res);
-        setFilteredAppointments(res);
-      }
-      // Nếu res là object có chứa data (trường hợp Service return nguyên response)
-      else if (res && Array.isArray(res.data)) {
-        setAppointments(res.data);
-        setFilteredAppointments(res.data);
-      }
+       const res = await doctorService.getSchedule();
+       setAppointments(res.data);
+       setFilteredAppointments(res.data);
     } catch (error) {
       console.error("Lỗi API:", error);
     } finally {
@@ -375,7 +323,7 @@ export default function SchedulePage() {
     if (searchTerm.trim()) {
       const term = (searchTerm || "").toLowerCase();
       filtered = filtered.filter(appt =>
-        (appt?.patientName || appt?.patient?.FullName || "").toLowerCase().includes(term) ||
+        (appt?.PatientName || appt?.patient?.FullName || "").toLowerCase().includes(term) ||
         (appt?.patient?.PhoneNumber || "").includes(term) ||
         (appt?.InitialSymptoms || "").toLowerCase().includes(term)
       );
@@ -405,33 +353,6 @@ export default function SchedulePage() {
     });
     setFilteredAppointments(filtered);
   }, [appointments, filterStatus, searchTerm, viewMode, currentWeek]);
-
-  //  EVENT HANDLERS 
-  const handlePreviousWeek = () => {
-    if (viewMode === "day") {
-      setCurrentWeek(prev => addDays(prev, -1))
-    } else if (viewMode === "week") {
-      setCurrentWeek(prev => subWeeks(prev, 1))
-    } else {
-      // month
-      const newDate = new Date(currentWeek)
-      newDate.setMonth(newDate.getMonth() - 1)
-      setCurrentWeek(newDate)
-    }
-  }
-
-  const handleNextWeek = () => {
-    if (viewMode === "day") {
-      setCurrentWeek(prev => addDays(prev, 1))
-    } else if (viewMode === "week") {
-      setCurrentWeek(prev => addWeeks(prev, 1))
-    } else {
-      // month
-      const newDate = new Date(currentWeek)
-      newDate.setMonth(newDate.getMonth() + 1)
-      setCurrentWeek(newDate)
-    }
-  }
 
   const handleToday = () => {
     setCurrentWeek(new Date())
@@ -492,14 +413,6 @@ export default function SchedulePage() {
     }
   }
 
-  const handleStartExam = async (id: number) => {
-    const success = await doctorService.startExam(id);
-    if (success) {
-      fetchAppointments(); // Tải lại dữ liệu sau khi đổi trạng thái
-      setShowDetailModal(false);
-    }
-  };
-
   //  HELPER FUNCTIONS
   const getStatusInfo = (status: string) => {
     switch (status) {
@@ -510,7 +423,7 @@ export default function SchedulePage() {
           text: "Đã check-in",
           bg: "bg-green-50"
         }
-      case "InProcess":
+       case "InProgress":
         return {
           cls: "bg-blue-100 text-blue-800 border-blue-200",
           icon: <Loader2 className="w-4 h-4 animate-spin" />,
@@ -541,21 +454,6 @@ export default function SchedulePage() {
     }
   }
 
-  const getPriorityInfo = (priority?: string) => {
-    switch (priority) {
-      case "emergency":
-        return { cls: "bg-red-100 text-red-800", text: "🚨 Cấp cứu" }
-      case "high":
-        return { cls: "bg-orange-100 text-orange-800", text: "⚠️ Ưu tiên cao" }
-      case "medium":
-        return { cls: "bg-yellow-100 text-yellow-800", text: "Ưu tiên trung" }
-      case "low":
-        return { cls: "bg-blue-100 text-blue-800", text: "Ưu tiên thấp" }
-      default:
-        return { cls: "bg-gray-100 text-gray-800", text: "Bình thường" }
-    }
-  }
-
   const exportToJSON = () => {
     const exportData = {
       exportedAt: new Date().toISOString(),
@@ -563,14 +461,13 @@ export default function SchedulePage() {
       currentDate: currentWeek.toISOString(),
       totalAppointments: filteredAppointments.length,
       appointments: filteredAppointments.map(appt => ({
-        id: appt.id,
-        patient: appt.patientName,
-        age: appt.patientAge,
-        phone: appt.patientPhone,
-        symptoms: appt.symptoms,
-        appointmentTime: appt.appointmentTime,
-        status: appt.status,
-        // service: appt.serviceName
+        id: appt.AppointmentID,
+        patient: appt.PatientName || appt.patient?.FullName,
+        phone: appt.patient?.PhoneNumber,
+        symptoms: appt.InitialSymptoms,
+        appointmentTime: appt.StartTime,
+        status: appt.Status,
+        service: appt.ServiceName || appt.service?.ServiceName,
       }))
     }
 
@@ -666,15 +563,15 @@ export default function SchedulePage() {
         <div className="mt-6 flex flex-wrap gap-4">
           {/* View Mode */}
           <div className="flex border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-            {[
+            {([
               { mode: "day", label: "Ngày" },
               { mode: "week", label: "Tuần" },
               { mode: "month", label: "Tháng" }
-            ].map(({ mode, label }) => (
+            ] as const).map(({ mode, label }) => (
               <button
                 key={mode}
                 onClick={() => {
-                  setViewMode(mode as any)
+                  setViewMode(mode)
                   if (mode === "day") setCurrentWeek(new Date())
                 }}
                 className={`px-4 py-2 transition-colors ${viewMode === mode
@@ -799,14 +696,14 @@ export default function SchedulePage() {
 
                       {/* Patient Avatar */}
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-lg">
-                        {(appointment.patientName || appointment.patient?.FullName || (appointment.patient as any)?.fullName || (appointment.patient as any)?.name || ((( (appointment.patient as any)?.FirstName || (appointment.patient as any)?.firstName || "") + " " + ((appointment.patient as any)?.LastName || (appointment.patient as any)?.lastName || "")).trim()) || "P").charAt(0).toUpperCase()}
+                        {(appointment.PatientName || appointment.patient?.FullName || "P").charAt(0).toUpperCase()}
                       </div>
 
                       {/* Patient Info */}
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-1">
                           <h4 className="font-semibold text-lg text-gray-900">
-                            {appointment.patientName || appointment.patient?.FullName || (appointment.patient as any)?.fullName || (appointment.patient as any)?.name || ((( (appointment.patient as any)?.FirstName || (appointment.patient as any)?.firstName || "") + " " + ((appointment.patient as any)?.LastName || (appointment.patient as any)?.lastName || "")).trim()) || "Bệnh nhân không tên"}
+                            {appointment.PatientName || appointment.patient?.FullName || "Bệnh nhân không tên"}
                           </h4>
                           <span className="text-sm text-gray-600 bg-white px-2 py-1 rounded">
                             {appointment.patient?.Gender}
@@ -972,7 +869,6 @@ export default function SchedulePage() {
                 setShowDetailModal(false)
                 setSelectedAppointment(null)
               }}
-              onStartExam={handleStartExam}
             />
           )
         }

@@ -1,13 +1,20 @@
 "use client"
 
 import { User, Clock, Calendar, Stethoscope } from "lucide-react"
-import { type Appointment, type Patient, type PatientDetail, type MedicalRecord, PriorityLevel, AppointmentStatus } from "@/lib/model"
+import {
+  type DoctorDashboardAppointment as Appointment,
+  type DoctorQueuePatient as Patient,
+  type PatientDetail,
+  type DoctorDashboardMedicalRecord as MedicalRecord,
+  PriorityLevel,
+  AppointmentStatus,
+} from "@/lib/model"
 
 interface ExamInProgressProps {
   appointments: Appointment[]
   waitingPatients: Patient[]
   medicalRecords: MedicalRecord[]
-  currentDoctor: any
+  currentDoctor?: { FullName?: string }
   getPriorityColor: (priority: string) => string
   getPriorityText: (priority: string) => string
   handleStartExam: (patient: PatientDetail) => void
@@ -17,7 +24,6 @@ export default function ExamInProgress({
   appointments,
   waitingPatients,
   medicalRecords,
-  currentDoctor,
   getPriorityColor,
   getPriorityText,
   handleStartExam

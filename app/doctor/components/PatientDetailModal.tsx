@@ -169,26 +169,16 @@ const PatientDetailModal = ({
               </div>
             ) : patientHistory.length > 0 ? (
               patientHistory.map(record => (
-                <div key={record.id} className="border rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                <div key={record.RecordID} className="border rounded-lg p-3 hover:bg-gray-50 transition-colors">
                   <div className="flex justify-between">
                     <span className="font-semibold">
-                      {record.date
-                        ? new Date(record.date).toLocaleDateString('vi-VN')
+                      {record.created_at
+                        ? new Date(record.created_at).toLocaleDateString('vi-VN')
                         : 'Không có ngày'}
                     </span>
-                    <span className="text-sm text-gray-600">{record.diagnosis}</span>
+                    <span className="text-sm text-gray-600">{record.Diagnosis}</span>
                   </div>
-                  <p className="text-sm mt-1">{record.treatment}</p>
-                  {record.prescriptions.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs font-medium text-gray-700">Đơn thuốc:</p>
-                      <ul className="text-xs text-gray-600 mt-1">
-                        {record.prescriptions.map((pres, idx) => (
-                          <li key={idx}>• {pres.medicine} ({pres.dosage})</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  <p className="text-sm mt-1">{record.Notes || "Không có ghi chú"}</p>
                 </div>
               ))
             ) : (

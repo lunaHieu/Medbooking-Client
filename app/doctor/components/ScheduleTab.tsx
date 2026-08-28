@@ -1,8 +1,12 @@
 "use client";
 
-import { Users, Clock, Calendar, ChevronLeft, ChevronRight } from "lucide-react"
-import type { Appointment, Patient, ScheduleDay } from "@/lib/model"
-import { useState } from "react"
+import { Users, Clock, ChevronLeft, ChevronRight } from "lucide-react"
+import type {
+  Appointment,
+  DoctorQueuePatient as Patient,
+  DoctorScheduleDay as ScheduleDay,
+} from "@/lib/model"
+type StatusInfo = { cls: string; text: string }
 
 interface ScheduleTabProps {
   currentWeek: Date
@@ -10,22 +14,19 @@ interface ScheduleTabProps {
   appointments: Appointment[]
   waitingPatients: Patient[]
   handleViewAppointmentDetail: (id: number) => void
-  getStatusInfo: (status: string) => any
+  getStatusInfo: (status: string) => StatusInfo
   getPriorityColor: (priority: string) => string
   getPriorityText: (priority: string) => string
   doctorId?: number
-  currentDoctor?: any
+  currentDoctor?: { workingHours?: string[] }
 }
 
 const ScheduleTab = ({
   currentWeek,
   setCurrentWeek,
   appointments,
-  waitingPatients,
   handleViewAppointmentDetail,
   getStatusInfo,
-  getPriorityColor,
-  getPriorityText,
   doctorId,
   currentDoctor
 }: ScheduleTabProps) => {
@@ -43,7 +44,7 @@ const ScheduleTab = ({
       if (diffMins < 60) return `${diffMins} phút`
       const diffHours = Math.floor(diffMins / 60)
       return `${diffHours} giờ`
-    } catch (error) {
+    } catch {
       return "lỗi tính giờ"
     }
   }
@@ -76,7 +77,7 @@ const ScheduleTab = ({
           const isSameDoctor = !doctorId || appt.DoctorID == doctorId;
 
           return isSameDay && isSameDoctor;
-        } catch (error) {
+        } catch {
           return false;
         }
       });
@@ -223,7 +224,7 @@ const ScheduleTab = ({
 
                         <p className="text-xs font-bold text-slate-900 truncate">
                           {/* Lấy từ object patient lồng bên trong JSON */}
-                          {appt.patientName || appt.patient?.FullName || (appt.patient as any)?.fullName || (appt.patient as any)?.name || ((( (appt.patient as any)?.FirstName || (appt.patient as any)?.firstName || "") + " " + ((appt.patient as any)?.LastName || (appt.patient as any)?.lastName || "")).trim()) || "Bệnh nhân chưa có tên"}
+                           {appt.PatientName || appt.patient?.FullName || "Bệnh nhân chưa có tên"}
                         </p>
 
                         <div className="flex items-center gap-1 text-[9px] text-slate-500 mt-1">

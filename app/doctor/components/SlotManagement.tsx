@@ -12,24 +12,26 @@ import { useSlotManagement } from "@/app/doctor/hooks/useSlotManagement"
 import { format } from "date-fns"
 
 export default function SlotManagement() {
-  const { slots, loading, error, createSlot, deleteSlot } = useSlotManagement()
+  const { slots, loading, error, loadSlots, createSlot, deleteSlot } = useSlotManagement()
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"))
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newSlot, setNewSlot] = useState({ startTime: "08:00", endTime: "08:30" })
   const [creating, setCreating] = useState(false)
 
-  // useEffect(() => {
-  //   fetchSlots(selectedDate)
-  // }, [selectedDate, fetchSlots])
+  useEffect(() => {
+    loadSlots(new Date(`${selectedDate}T00:00:00`))
+  }, [selectedDate, loadSlots])
 
   const handleCreateSlot = async () => {
     setCreating(true)
     try {
-      await createSlot({
+      const result = await createSlot({
         date: selectedDate,
         start_time: newSlot.startTime,
         end_time: newSlot.endTime,
       })
+      if (!result?.success) return
+      await loadSlots(new Date(`${selectedDate}T00:00:00`))
       setDialogOpen(false)
       setNewSlot({ startTime: "08:00", endTime: "08:30" })
     } catch (err) {
@@ -39,15 +41,12 @@ export default function SlotManagement() {
     }
   }
 
-  // const handleDeleteSlot = async (slotId: string) => {
-  //   if (confirm("Bạn có chắc muốn xóa slot này?")) {
-  //     try {
-  //       await deleteSlot(slotId)
-  //     } catch (err) {
-  //       console.error("Failed to delete slot:", err)
-  //     }
-  //   }
-  // }
+  const handleDeleteSlot = async (slotId: number) => {
+    if (!confirm("Bạn có chắc muốn khóa slot này?")) return
+    const result = await deleteSlot(slotId)
+    if (!result?.success) return
+    await loadSlots(new Date(`${selectedDate}T00:00:00`))
+  }
 
   return (
     <Card>
@@ -121,23 +120,23 @@ export default function SlotManagement() {
           <p className="py-8 text-center text-sm text-muted-foreground">Chưa có slot nào trong ngày này</p>
         ) : (
           <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-            {/* {slots.map((slot) => (
+            {slots.map((slot) => (
               <div key={slot.id} className="flex items-center justify-between rounded-lg border p-3">
                 <div>
                   <p className="font-medium">
-                    {slot.startTime} - {slot.endTime}
+                    {slot.start_time} - {slot.end_time}
                   </p>
-                  <Badge variant={slot.isAvailable ? "secondary" : "destructive"}>
-                    {slot.isAvailable ? "Trống" : "Đã đặt"}
+                  <Badge variant={slot.status === "available" ? "secondary" : "destructive"}>
+                    {slot.status === "available" ? "Trống" : slot.status === "booked" ? "Đã đặt" : "Đã khóa"}
                   </Badge>
                 </div>
-                {slot.isAvailable && (
+                {slot.status === "available" && (
                   <Button variant="ghost" size="icon" onClick={() => handleDeleteSlot(slot.id)}>
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 )}
               </div>
-            ))} */}
+            ))}
           </div>
         )}
       </CardContent>

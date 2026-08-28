@@ -2,21 +2,18 @@
 
 import { useState, useEffect } from "react";
 import {
-  User, Shield, Bell, Globe, Database, HelpCircle, Mail, Phone,
-  MapPin, Calendar, GraduationCap, Briefcase, Award, Save,
-  RefreshCw, Key, Smartphone, Monitor, Moon, Sun, FileText
+  User, Shield, Bell, Database, Mail, Phone,
+  Calendar, GraduationCap, Briefcase, Save,
+  RefreshCw, Key, Monitor, Moon, Sun, FileText
 } from "lucide-react";
 import { doctorService } from "../../services/doctorService";
 import * as Api from "@/lib/ApiClient";
+import { AxiosError } from "axios";
 
 export default function SettingsPage() {
   // STATES 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "security" | "notifications" | "preferences">("profile");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [specialties, setSpecialties] = useState<{ SpecialtyID: number; SpecialtyName: string }[]>([]);
-  const [selectedSpecialtyId, setSelectedSpecialtyId] = useState<number | null>(null);
 
   // DOCTOR PROFILE
   const [doctorInfo, setDoctorInfo] = useState({
@@ -42,13 +39,6 @@ export default function SettingsPage() {
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
-    twoFactorAuth: true,
-    sessionTimeout: 30, // minutes
-    loginAlerts: true,
-    deviceManagement: [
-      { id: 1, device: "iPhone 14 Pro", lastActive: "2 giờ trước", location: "TP.HCM" },
-      { id: 2, device: "MacBook Pro", lastActive: "1 ngày trước", location: "TP.HCM" }
-    ]
   });
 
   //  NOTIFICATION SETTINGS
@@ -100,7 +90,10 @@ export default function SettingsPage() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const res = await doctorService.getMyProfile();
+        const [res, savedSettings] = await Promise.all([
+          doctorService.getMyProfile(),
+          doctorService.getMySettings(),
+        ]);
         if (res.success && res.data) {
           const d = res.data;
 
@@ -116,6 +109,18 @@ export default function SettingsPage() {
             bio: d.ProfileDescription || ""
           }));
         }
+        if (Object.keys(savedSettings.notificationSettings).length > 0) {
+          setNotificationSettings(prev => ({
+            ...prev,
+            ...savedSettings.notificationSettings as Partial<typeof prev>,
+          }));
+        }
+        if (Object.keys(savedSettings.preferences).length > 0) {
+          setPreferences(prev => ({
+            ...prev,
+            ...savedSettings.preferences as Partial<typeof prev>,
+          }));
+        }
       } catch (err) {
         console.error("Không tải được profile:", err);
       }
@@ -127,24 +132,42 @@ export default function SettingsPage() {
   const handleSaveChanges = async () => {
     setSaveStatus("saving");
     try {
-      await doctorService.updateProfile({
-        FullName: doctorInfo.name,
-        email: doctorInfo.email,
-        phone: doctorInfo.phone,
-        SpecialtyID: doctorInfo.specialtyId,
-        Degree: doctorInfo.education,
-        YearsOfExperience: doctorInfo.experience,
-        ProfileDescription: doctorInfo.bio,
-      });
+      await Promise.all([
+        doctorService.updateProfile({
+          FullName: doctorInfo.name,
+          email: doctorInfo.email,
+          phone: doctorInfo.phone,
+          SpecialtyID: doctorInfo.specialtyId,
+          Degree: doctorInfo.education,
+          YearsOfExperience: doctorInfo.experience,
+          ProfileDescription: doctorInfo.bio,
+        }),
+        doctorService.updateSettings({ notificationSettings, preferences }),
+      ]);
 
       // 2. Lấy cache cũ
       const currentCache = localStorage.getItem("doctorInfo");
-      let existingData: any = {};
+      let existingData: Record<string, unknown> = {};
       if (currentCache) {
-        try { existingData = JSON.parse(currentCache); } catch { }
+        try {
+          const parsedCache: unknown = JSON.parse(currentCache);
+          if (parsedCache && typeof parsedCache === "object" && !Array.isArray(parsedCache)) {
+            existingData = parsedCache as Record<string, unknown>;
+          }
+        } catch {
+          existingData = {};
+        }
       }
 
       // 3. Tạo cache mới bao gồm cả thông tin chuyên môn
+      const cachedDoctor = existingData.doctor;
+      const doctorCache = cachedDoctor && typeof cachedDoctor === "object" && !Array.isArray(cachedDoctor)
+        ? cachedDoctor as Record<string, unknown>
+        : {};
+      const cachedSpecialty = doctorCache.specialty;
+      const specialtyCache = cachedSpecialty && typeof cachedSpecialty === "object" && !Array.isArray(cachedSpecialty)
+        ? cachedSpecialty as Record<string, unknown>
+        : {};
       const updatedCache = {
         ...existingData,
         FullName: doctorInfo.name,
@@ -152,12 +175,12 @@ export default function SettingsPage() {
         PhoneNumber: doctorInfo.phone,
         // Đảm bảo doctor_profile cũng được cập nhật trong cache
         doctor: {
-          ...(existingData.doctor || {}),
+          ...doctorCache,
           Degree: doctorInfo.education,
           YearsOfExperience: doctorInfo.experience,
           ProfileDescription: doctorInfo.bio,
           specialty: {
-            ...((existingData.doctor?.specialty) || {}),
+            ...specialtyCache,
             SpecialtyName: doctorInfo.specialty.trim()
           }
         }
@@ -175,7 +198,7 @@ export default function SettingsPage() {
     }
   };
   // EVENT HANDLERS 
-  const handleInputChange = (section: string, field: string, value: any) => {
+  const handleInputChange = (section: string, field: string, value: string | number | boolean | string[]) => {
     switch (section) {
       case "profile":
         setDoctorInfo(prev => ({ ...prev, [field]: value }));
@@ -187,6 +210,17 @@ export default function SettingsPage() {
         // Handle nested notification settings
         if (field.includes('.')) {
           const [category, subField] = field.split('.');
+          if (category === "quietHours") {
+            const quietHoursField = subField as keyof typeof notificationSettings.quietHours;
+            setNotificationSettings(prev => ({
+              ...prev,
+              quietHours: {
+                ...prev.quietHours,
+                [quietHoursField]: value,
+              },
+            }));
+            break;
+          }
           setNotificationSettings(prev => ({
             ...prev,
             [category]: {
@@ -237,21 +271,14 @@ export default function SettingsPage() {
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 3000);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      alert(error.response?.data?.message || "Lỗi: Mật khẩu hiện tại không đúng hoặc có lỗi hệ thống!");
+      const apiError = error instanceof AxiosError
+        ? error.response?.data as { message?: string } | undefined
+        : undefined;
+      alert(apiError?.message || "Lỗi: Mật khẩu hiện tại không đúng hoặc có lỗi hệ thống!");
       setSaveStatus("error");
       setTimeout(() => setSaveStatus("idle"), 3000);
-    }
-  };
-
-  const handleDeviceLogout = (deviceId: number) => {
-    if (confirm("Bạn có chắc muốn đăng xuất thiết bị này?")) {
-      setSecuritySettings(prev => ({
-        ...prev,
-        deviceManagement: prev.deviceManagement.filter(device => device.id !== deviceId)
-      }));
-      alert(` Đã đăng xuất thiết bị`);
     }
   };
 
@@ -277,7 +304,6 @@ export default function SettingsPage() {
   };
 
   const handleRefreshData = () => {
-    setLoading(true);
     setTimeout(() => {
       // Reload page in real app
       window.location.reload();
@@ -728,100 +754,15 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Security Settings Card */}
-          <div className="bg-white rounded-2xl shadow-sm border p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-indigo-600" />
-              Cài đặt bảo mật
+          <div className="bg-amber-50 rounded-2xl border border-amber-200 p-6">
+            <h3 className="text-lg font-semibold text-amber-900 mb-2 flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              Bảo mật nâng cao
             </h3>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium text-gray-900">Xác thực 2 yếu tố</div>
-                  <p className="text-sm text-gray-600">Thêm lớp bảo mật bổ sung cho tài khoản</p>
-                </div>
-                <button
-                  onClick={() => handleInputChange("security", "twoFactorAuth", !securitySettings.twoFactorAuth)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full ${securitySettings.twoFactorAuth ? 'bg-indigo-600' : 'bg-gray-300'
-                    }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${securitySettings.twoFactorAuth ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                  />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium text-gray-900">Cảnh báo đăng nhập</div>
-                  <p className="text-sm text-gray-600">Nhận thông báo khi có đăng nhập mới</p>
-                </div>
-                <button
-                  onClick={() => handleInputChange("security", "loginAlerts", !securitySettings.loginAlerts)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full ${securitySettings.loginAlerts ? 'bg-indigo-600' : 'bg-gray-300'
-                    }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${securitySettings.loginAlerts ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                  />
-                </button>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Thời gian tự động đăng xuất
-                </label>
-                <select
-                  value={securitySettings.sessionTimeout}
-                  onChange={(e) => handleInputChange("security", "sessionTimeout", parseInt(e.target.value))}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Device Management Card */}
-          <div className="bg-white rounded-2xl shadow-sm border p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-              <Smartphone className="w-5 h-5 text-indigo-600" />
-              Quản lý thiết bị
-            </h3>
-
-            <div className="space-y-4">
-              {securitySettings.deviceManagement.map(device => (
-                <div key={device.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                      {device.device.includes("iPhone") ? (
-                        <Smartphone className="w-5 h-5 text-gray-600" />
-                      ) : (
-                        <Monitor className="w-5 h-5 text-gray-600" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-medium">{device.device}</div>
-                      <div className="text-sm text-gray-600">
-                        {device.lastActive} • {device.location}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDeviceLogout(device.id)}
-                    className="px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    Đăng xuất
-                  </button>
-                </div>
-              ))}
-
-              <div className="text-sm text-gray-600">
-                Hiện có {securitySettings.deviceManagement.length} thiết bị đang hoạt động
-              </div>
-            </div>
+            <p className="text-sm text-amber-800">
+              Xác thực hai yếu tố, cảnh báo đăng nhập, timeout phiên và quản lý thiết bị sẽ chỉ xuất hiện khi hệ thống có cơ chế quản lý phiên và xác thực đa yếu tố ở máy chủ.
+              Hiện tại, thay đổi mật khẩu là chức năng bảo mật duy nhất có hiệu lực.
+            </p>
           </div>
         </div>
       )}

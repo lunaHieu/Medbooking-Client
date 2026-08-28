@@ -1,8 +1,14 @@
 
 "use client";
 
-import { Search, Filter, ChevronLeft, ChevronRight, Calendar, User, Clock } from "lucide-react";
-import type { Appointment, Patient, PatientDetail, MedicalRecord } from "@/lib/model"
+import { Search, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import type { ReactNode } from "react";
+import type {
+  DoctorDashboardAppointment as Appointment,
+  DoctorQueuePatient as Patient,
+  PatientDetail,
+  DoctorDashboardMedicalRecord as MedicalRecord,
+} from "@/lib/model"
 
 interface TodayAppointmentsProps {
   appointments: Appointment[];
@@ -14,7 +20,7 @@ interface TodayAppointmentsProps {
   itemsPerPage: number;
   totalPages: number;
   paginatedAppointments: Appointment[];
-  getStatusInfo: (status: string) => any;
+  getStatusInfo: (status: string) => { cls: string; text: string; icon?: ReactNode };
   getPriorityColor: (priority: string) => string;
   getPriorityText: (priority: string) => string;
   setSearchTerm: (term: string) => void;
@@ -26,13 +32,11 @@ interface TodayAppointmentsProps {
 }
 
 export default function TodayAppointments({
-  appointments,
   waitingPatients,
   medicalRecords,
   searchTerm,
   statusFilter,
   currentPage,
-  itemsPerPage,
   totalPages,
   paginatedAppointments,
   getStatusInfo,
@@ -51,7 +55,7 @@ export default function TodayAppointments({
     const buttons = [];
     const maxVisible = 5;
     let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-    let end = Math.min(totalPages, start + maxVisible - 1);
+    const end = Math.min(totalPages, start + maxVisible - 1);
     if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
 
     for (let i = start; i <= end; i++) {

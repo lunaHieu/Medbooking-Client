@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import type React from "react"
-import type { PatientDetail, MedicalExamFormData, Prescription, VitalSigns } from "@/lib/model"
-import { doctorService } from "../../services/doctorService"
-import { Save, AlertTriangle, Plus, Trash2, FileText, Upload } from "lucide-react"
+import type { PatientDetail, MedicalExamFormData } from "@/lib/model"
+import { Save, AlertTriangle, Trash2, FileText, Upload } from "lucide-react"
 
 interface MedicalExamFormProps {
   patient: PatientDetail
@@ -17,9 +16,6 @@ const MedicalExamForm = ({
   onComplete,
   onCancel
 }: MedicalExamFormProps) => {
-  const [prescriptions, setPrescriptions] = useState<Prescription[]>([
-    { medicine: '', dosage: '', frequency: '' }
-  ])
   const [formData, setFormData] = useState<MedicalExamFormData>({
     diagnosis: '',
     clinicalNotes: '',
@@ -41,17 +37,6 @@ const MedicalExamForm = ({
 
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
-
-  // Đồng bộ prescriptions với formData
-  useEffect(() => {
-    const validPrescriptions = prescriptions.filter(p =>
-      p.medicine.trim() && p.dosage.trim() && p.frequency.trim()
-    )
-    setFormData(prev => ({
-      ...prev,
-      prescriptions: validPrescriptions
-    }))
-  }, [prescriptions])
 
   // const updateVitalSign = (field: keyof VitalSigns, value: string | number) => {
   //   setFormData(prev => ({
@@ -171,27 +156,7 @@ const MedicalExamForm = ({
 
     setLoading(true);
     try {
-      const dataToSend = new FormData();
-
-      // Ép kiểu ID về String để FormData xử lý chuẩn nhất
-      dataToSend.append('AppointmentID', patient.id.toString());
-      dataToSend.append('PatientID', patient.patientId?.toString() || "");
-      dataToSend.append('Diagnosis', formData.diagnosis);
-      dataToSend.append('CurrentSymptoms', formData.currentSymptoms);
-      dataToSend.append('Notes', formData.notes || "");
-
-      formData.attachments.forEach((file) => {
-        dataToSend.append('attachments[]', file);
-      });
-
-      // --- ĐOẠN KIỂM TRA QUAN TRỌNG ---
-      console.log("🚀 [FRONTEND CHECK] Dữ liệu chuẩn bị bay lên Server:");
-      dataToSend.forEach((value, key) => {
-        console.log(`${key}:`, value);
-      });
-
-      // Gửi FormData sang hàm onComplete ở file cha
-      await onComplete(dataToSend as any);
+      await onComplete(formData);
 
     } catch (error) {
       console.error("❌ Lỗi khi lưu bệnh án:", error);

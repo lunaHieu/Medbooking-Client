@@ -1,13 +1,12 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
-import { Search } from "lucide-react";
+import { useState, useEffect } from "react";
 import { MedicalRecord } from "@/lib/model"
 // import { generatePrescriptionPDF } from "../components/InPrescriptionPDF";
 interface MedicalRecordsTabProps {
   medicalRecords: MedicalRecord[]
   handleViewMedicalRecord: (id: number) => void
-  generatePrescriptionPDF: (record: MedicalRecord) => void
+  generateMedicalRecordPrint: (record: MedicalRecord) => void
   viewMode?: "list" | "grid"
 }
 const statusConfig: Record<string, { label: string; classes: string }> = {
@@ -19,63 +18,21 @@ const statusConfig: Record<string, { label: string; classes: string }> = {
 const MedicalRecordsTab = ({
   medicalRecords,
   handleViewMedicalRecord,
-  generatePrescriptionPDF
+  generateMedicalRecordPrint
 }: MedicalRecordsTabProps) => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-
-
-  // Filter records
-  const filteredRecords = medicalRecords.filter(record => {
-    const matchesSearch =
-      (record?.patientName || record?.patient?.FullName || "").toLowerCase().includes((searchTerm || "").toLowerCase()) ||
-      (record?.Diagnosis || "").toLowerCase().includes((searchTerm || "").toLowerCase());
-
-    const matchesStatus = statusFilter === "all" || record.appointment?.Status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
-  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
+  const totalPages = Math.ceil(medicalRecords.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredRecords.slice(indexOfFirstItem, indexOfLastItem);
+  const currentItems = medicalRecords.slice(indexOfFirstItem, indexOfLastItem);
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter]);
+  }, [medicalRecords]);
   return (
     <div className="bg-white rounded-2xl shadow border p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <h2 className="text-xl font-semibold text-slate-900">Quản lý bệnh án ({filteredRecords.length})</h2>
-
-        {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          {/* Search Input */}
-          <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Tìm theo tên hoặc chẩn đoán..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="Completed">Đã hoàn thành</option>
-            <option value="Pending">Đang chờ xử lý</option>
-            <option value="Confirm">Đã xác nhận</option>
-            <option value="CheckedIn">Đã có mặt</option>
-          </select>
-        </div>
+        <h2 className="text-xl font-semibold text-slate-900">Quản lý bệnh án ({medicalRecords.length})</h2>
       </div>
 
       {currentItems.length === 0 ? (
@@ -94,7 +51,7 @@ const MedicalRecordsTab = ({
               <div key={record.RecordID} className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h3 className="font-semibold text-slate-900">{record.patientName || record.patient?.FullName || ((((record.patient as any)?.FirstName || (record.patient as any)?.firstName || "") + " " + ((record.patient as any)?.LastName || (record.patient as any)?.lastName || "")).trim())}</h3>
+                    <h3 className="font-semibold text-slate-900">{record.patient?.FullName || "Bệnh nhân chưa có tên"}</h3>
                     <p className="text-sm text-slate-600">Ngày sinh: {record.patient?.DateOfBirth ? (
                       new Date(record.patient.DateOfBirth).toLocaleDateString('vi-VN', {
                         day: '2-digit',
@@ -120,21 +77,6 @@ const MedicalRecordsTab = ({
                     <p className="text-sm text-slate-600">{record.Notes}</p>
                   </div>
                 </div>
-                {record.prescriptions?.length > 0 && (
-                  <div className="mb-3">
-                    <p className="text-sm font-medium text-slate-700 mb-1">Đơn thuốc:</p>
-                    <div className="text-sm text-slate-600 space-y-1">
-                      {record.prescriptions?.map((pres, index) => (
-                        <div key={index} className="flex gap-2">
-                          <span>• {pres.medicine}</span>
-                          <span>{pres.dosage}</span>
-                          <span>({pres.frequency})</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleViewMedicalRecord(record.RecordID)}
@@ -143,7 +85,7 @@ const MedicalRecordsTab = ({
                     Xem chi tiết
                   </button>
                   <button
-                    onClick={() => generatePrescriptionPDF(record)}
+                    onClick={() => generateMedicalRecordPrint(record)}
                     className="px-3 py-1 border border-slate-300 rounded text-sm hover:bg-slate-100 transition-colors"
                   >
                     In Bệnh Án
