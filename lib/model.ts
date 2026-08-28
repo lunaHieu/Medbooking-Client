@@ -59,6 +59,11 @@ export interface AvailabilitySlot {
   Status: "Available" | "Booked";
 }
 
+export interface AdminScheduleSlot extends Omit<AvailabilitySlot, "Status"> {
+  Status: string;
+  appointment?: Appointment | null;
+}
+
 export interface ExamResult {
   ResultID: number;
   RecordID: number;
@@ -90,11 +95,16 @@ export interface Appointment {
   SlotID: number | null;
   ServiceID: number;
   StartTime: string;
+  EstimatedDuration?: number | null;
   Status: "Pending" | "Confirmed" | "Completed" | "Cancelled" | "CheckedIn" | string;
   InitialSymptoms: string | null;
   CancellationReason: string | null;
   file_path: string | null;
   Type: 'New' | 'FollowUp';
+  PatientName?: string;
+  DoctorName?: string;
+  SpecialtyName?: string;
+  ServiceName?: string;
   // Các quan hệ lồng nhau
   patient?: User;
   doctor?: Doctor;
@@ -190,7 +200,7 @@ export interface RawApiNotification {
 }
 // Type cho Doctor
 
-export interface MedicalRecord {
+export interface DoctorDashboardMedicalRecord {
   id: number
   patientName: string
   age: number
@@ -229,7 +239,7 @@ export interface Prescription {
   frequency: string
 }
 
-export interface ScheduleDay {
+export interface DoctorScheduleDay {
   id: number
   date: string
   appointments: number
@@ -239,13 +249,13 @@ export interface ScheduleDay {
 
 // Thêm các interface mới
 
-export interface Specialty {
+export interface DoctorSpecialtyOption {
   id: number
   SpecialtyName: string
   description?: string
 }
 
-export interface DashboardStats {
+export interface DoctorDashboardStats {
   totalAppointments: number
   completedAppointments: number
   waitingAppointments: number
@@ -266,7 +276,7 @@ export enum AppointmentStatus {
   CONFIRMED = "Confirmed",
   PENDING = "Pending",
   CHECKED_IN = "CheckedIn",
-  IN_PROGRESS = "InProcess",
+  IN_PROGRESS = "InProgress",
   COMPLETED = "Completed",
   CANCELLED = "Cancelled"
 }
@@ -285,7 +295,7 @@ export enum PriorityLevel {
 // }
 
 // existing interfaces
-export interface Appointment {
+export interface DoctorDashboardAppointment {
   id: number
   patientId: number  
   patientName: string
@@ -299,7 +309,7 @@ export interface Appointment {
   notes?: string
 }
 
-export interface Patient {
+export interface DoctorQueuePatient {
   id: number
   patientId: number  
   name: string
@@ -319,13 +329,6 @@ export interface Patient {
 }
 
 // Type mới cho Schedule
-export interface ScheduleDay {
-  id: number;
-  date: string;
-  appointments: number;
-  timeSlots: string[];
-  appointmentsList: Appointment[];
-}
 export interface ChangePasswordRequest {
     currentPassword: string;
     newPassword: string;
@@ -346,7 +349,7 @@ export interface WeeklySchedule {
   weekNumber: number;
   startDate: string;
   endDate: string;
-  days: ScheduleDay[];
+  days: DoctorScheduleDay[];
 }
 
 export interface AppointmentFilter {
@@ -357,9 +360,9 @@ export interface AppointmentFilter {
     end: Date;
   };
 }
-export interface PatientDetail extends Patient {
+export interface PatientDetail extends DoctorQueuePatient {
   appointmentId?: number;
-  medicalRecords: MedicalRecord[]
+  medicalRecords: DoctorDashboardMedicalRecord[]
   vitalSigns?: VitalSigns
 }
 export interface AdminUpdatePatientRequest {

@@ -336,11 +336,9 @@ export const doctorCreateSlot = async (
   start: string,
   end: string,
 ): Promise<Model.MessageResponse> => {
-  const formData = new FormData();
-  formData.append("StartTime", start);
-  formData.append("EndTime", end);
-  const response = await apiClient.post("/doctor/schedules", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
+  const response = await apiClient.post("/doctor/schedules", {
+    startTime: start,
+    endTime: end,
   });
   return response.data;
 };
@@ -350,11 +348,9 @@ export const doctorDeleteSlot = async (id: number): Promise<void> => {
 };
 
 export const doctorCreateMedicalRecord = async (
-  formData: FormData,
+  payload: { appointmentId: number; diagnosis: string; notes?: string },
 ): Promise<Model.MessageResponse> => {
-  const response = await apiClient.post("/doctor/medical-records", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  const response = await apiClient.post("/doctor/medical-records", payload);
   return response.data;
 };
 
@@ -378,7 +374,7 @@ export const doctorUploadResult = async (
 
 export const updateAppointmentStatus = async (
   appointmentId: number,
-  status: "InProgress" | "Completed" | "Cancelled",
+  status: "InProgress" | "Completed",
 ): Promise<Model.MessageResponse> => {
   let response;
   if (status === "InProgress") {
@@ -386,15 +382,10 @@ export const updateAppointmentStatus = async (
       `/doctor/appointments/${appointmentId}/start`,
       {},
     );
-  } else if (status === "Completed") {
+  } else {
     response = await apiClient.put(
       `/doctor/appointments/${appointmentId}/complete`,
       {},
-    );
-  } else {
-    response = await apiClient.put(
-      `/doctor/appointments/${appointmentId}/status`,
-      { Status: status },
     );
   }
   return response.data;
@@ -410,13 +401,6 @@ export const getMySlots = async (
   return response.data;
 };
 
-export const getAppointmentDetail = async (
-  id: number,
-): Promise<Model.Appointment> => {
-  const response = await apiClient.get(`/doctor/appointments/${id}`);
-  return response.data;
-};
-
 export const getPatientHistory = async (
   patientId: number,
 ): Promise<Model.MedicalRecord[]> => {
@@ -426,11 +410,9 @@ export const getPatientHistory = async (
   return response.data;
 };
 
-export const getDoctorDashboard = async (): Promise<any> => {
+export const getDoctorDashboard = async (): Promise<unknown> => {
   try {
     console.log("Getting doctor dashboard...");
-    console.log("Current token:", localStorage.getItem("api_token"));
-
     const response = await apiClient.get("/doctor/dashboard/stats");
     console.log("Dashboard response:", response.data);
     return response.data;
@@ -475,12 +457,9 @@ export const getAllAppointments = async (): Promise<Model.Appointment[]> => {
       return response.data.data;
     }
 
-    console.error("Unexpected response format:", response.data);
-    return [];
-
     console.warn("Unexpected response format:", response.data);
     return [];
-  } catch (error) {
+  } catch {
     console.log("All appointments endpoint error");
     return [];
   }
@@ -489,7 +468,7 @@ export const getAllAppointments = async (): Promise<Model.Appointment[]> => {
 export const getDoctorScheduleAdmin = async (
   doctorId: number,
   date: string,
-) => {
+): Promise<Model.AdminScheduleSlot[]> => {
   const response = await apiClient.get(
     `/admin/doctors/${doctorId}/schedules?targetDate=${date}`,
   );
@@ -510,7 +489,7 @@ export const getPendingAppointments = async (): Promise<
 
     console.warn("Unexpected response format:", response.data);
     return [];
-  } catch (error) {
+  } catch {
     console.log("Pending appointments endpoint error");
     return [];
   }
@@ -625,7 +604,7 @@ export const adminDeleteService = async (id: number): Promise<void> => {
 export const getDoctorMyMedicalRecords = async (): Promise<
   Model.MedicalRecord[]
 > => {
-  const response = await apiClient.get("/doctor/my-medical-records-test");
+  const response = await apiClient.get("/doctor/medical-records");
   return response.data;
 };
 
@@ -743,20 +722,16 @@ export const adminCreateSlot = async (
   doctorId: number,
   start: string,
   end: string,
-): Promise<Model.AvailabilitySlot> => {
-  const formData = new FormData();
-  formData.append("DoctorID", doctorId.toString());
-  formData.append("StartTime", start);
-  formData.append("EndTime", end);
-
-  const response = await apiClient.post("/staff/availability", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
+): Promise<Model.MessageResponse> => {
+  const response = await apiClient.post(`/admin/doctors/${doctorId}/schedules`, {
+    startTime: start.replace(" ", "T"),
+    endTime: end.replace(" ", "T"),
   });
-  return response.data.slot || response.data;
+  return response.data;
 };
 
 export const adminDeleteSlot = async (slotId: number): Promise<void> => {
-  await apiClient.delete(`/staff/availability/${slotId}`);
+  await apiClient.put(`/admin/schedules/${slotId}/cancel`, {});
 };
 
 export const adminUpdatePatient = async (

@@ -1,6 +1,7 @@
 import apiClient from "@/lib/ApiClient";
+import { PriorityLevel } from "@/lib/model";
 import type {
-  Patient,
+  DoctorQueuePatient as Patient,
   MedicalRecord,
   Appointment
 } from "@/lib/model";
@@ -40,6 +41,53 @@ export interface UserProfileResponse {
 export interface ScheduleResponse {
   success: boolean;
   data: Appointment[];
+}
+
+export interface DoctorSettingsData {
+  notificationSettings: Record<string, unknown>;
+  preferences: Record<string, unknown>;
+}
+
+export interface MedicalRecordCreatePayload {
+  appointmentId: number;
+  diagnosis: string;
+  notes?: string;
+}
+
+export interface DoctorSlotResponse {
+  SlotID: number;
+  StartTime: string;
+  EndTime: string;
+  Status: string;
+}
+
+interface DoctorPatientApiResponse {
+  UserID?: number;
+  id?: number;
+  FullName?: string;
+  name?: string;
+  PhoneNumber?: string;
+  phone?: string;
+  Birthday?: string;
+  DoB?: string;
+  DateOfBirth?: string;
+  Gender?: string;
+  gender?: string;
+}
+
+interface DoctorAppointmentApiResponse {
+  id?: number;
+  AppointmentID?: number;
+  PatientID?: number;
+  patient?: DoctorPatientApiResponse;
+  StartTime?: string;
+  start_time?: string;
+  updated_at?: string;
+  Status?: string;
+  InitialSymptoms?: string;
+  Reason?: string;
+  Description?: string;
+  Priority?: "low" | "medium" | "high" | "emergency";
 }
 
 export interface PatientHistoryResponse {
@@ -120,13 +168,13 @@ class DoctorService {
   async getQueue(): Promise<QueueResponse> {
     try {
       const response = await apiClient.get("/doctor/appointments/my-day");
-      const appointmentList = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+      const appointmentList = (Array.isArray(response.data) ? response.data : (response.data?.data || [])) as DoctorAppointmentApiResponse[];
 
-      const mappedPatients: Patient[] = appointmentList.map((appt: any) => {
+      const mappedPatients: Patient[] = appointmentList.map((appt) => {
         // Lấy object bệnh nhân
         const p = appt.patient || {};
         return {
-          id: appt.id || appt.AppointmentID,
+          id: appt.id ?? appt.AppointmentID ?? 0,
           patientId: appt.PatientID || p.UserID || p.id || 0,
           name: p.FullName || p.name || "Không tên",
           phone: p.PhoneNumber || p.phone || "",
@@ -135,13 +183,18 @@ class DoctorService {
 
           gender: p.Gender || p.gender || 'other',
 
-          appointmentTime: appt.StartTime || appt.start_time,
-          checkInTime: appt.updated_at,
+          appointmentTime: appt.StartTime || appt.start_time || "",
+          checkInTime: appt.updated_at || "",
 
-          status: this.normalizeStatus(appt.Status),
+          status: this.normalizeStatus(appt.Status || ""),
           initialSymptoms: appt.InitialSymptoms || "Bệnh nhân không nhập triệu chứng",
           symptoms: appt.Reason || appt.Description || "",
-          priority: appt.Priority || "medium",
+          priority: {
+            low: PriorityLevel.LOW,
+            medium: PriorityLevel.MEDIUM,
+            high: PriorityLevel.HIGH,
+            emergency: PriorityLevel.EMERGENCY,
+          }[appt.Priority || "medium"],
           allergies: [],
           medicalHistory: []
         };
@@ -156,11 +209,6 @@ class DoctorService {
       console.error("Lỗi getQueue:", error);
       return { success: false, data: [] };
     }
-  }
-
-  async getAppointmentDetail(id: number) {
-    const res = await apiClient.get(`/doctor/appointments/${id}`);
-    return res.data.data;
   }
 
   // SCHEDULE
@@ -184,14 +232,11 @@ class DoctorService {
   }
 
   // APPOINTMENT STATUS UPDATES 
-  async updateAppointmentStatus(id: number, status: string): Promise<boolean> {
+  async updateAppointmentStatus(id: number, status: "InProgress" | "Completed"): Promise<boolean> {
     try {
-      console.log(`[API] Đang gọi cập nhật status: ${status} cho ID ${id}`);
-      const response = await apiClient.patch(`/doctor/appointments/${id}/status`, {
-        Status: status,
-        status: status
-      });
-      return response.data.success;
+      const action = status === "InProgress" ? "start" : "complete";
+      await apiClient.put(`/doctor/appointments/${id}/${action}`, {});
+      return true;
     } catch (error) {
       console.error(`Lỗi update status ${status}:`, error);
       return false;
@@ -199,7 +244,8 @@ class DoctorService {
   }
 
   async checkInAppointment(id: number): Promise<boolean> {
-    return await this.updateAppointmentStatus(id, "checked_in");
+    console.error(`Không thể check-in lịch hẹn ${id}: thao tác này thuộc quyền nhân viên tiếp đón.`);
+    return false;
   }
 
   async startExam(id: number): Promise<boolean> {
@@ -211,7 +257,8 @@ class DoctorService {
   }
 
   async cancelAppointment(id: number): Promise<boolean> {
-    return await this.updateAppointmentStatus(id, "cancelled");
+    console.error(`Không thể hủy lịch hẹn ${id}: API bác sĩ không hỗ trợ thao tác này.`);
+    return false;
   }
 
   // ==================== MEDICAL RECORDS ====================
@@ -234,57 +281,42 @@ class DoctorService {
 
     return { success: false, message: "Server không trả về dữ liệu" };
 
-  } catch (error: any) {
-    // Log lỗi chi tiết giống hàm Create để dễ debug
-    if (error.response) {
-      console.error('[API] Server trả về lỗi:', error.response.data);
-      console.error('Status code:', error.response.status);
-    } else {
-      console.error('[API] Lỗi mạng/Kết nối:', error.message);
-    }
-
+  } catch (error) {
+    console.error("Lỗi tải bệnh án:", error);
     return { 
       success: false, 
-      message: error.response?.data?.message || "Lỗi kết nối server khi tải bệnh án" 
+      message: "Lỗi kết nối server khi tải bệnh án"
     };
   }
 }
-  async createMedicalRecord(formData: FormData) {
-  try {
-    // Lưu ý: Khi gửi FormData, Axios sẽ tự động thiết lập 
-    // Content-Type: multipart/form-data
-    const response = await apiClient.post("/doctor/medical-records", formData);
-    return response.data;
-  } catch (error) {
-    console.error("Lỗi createMedicalRecord service:", error);
-    throw error;
+  async createMedicalRecord(payload: MedicalRecordCreatePayload): Promise<ApiResponse<{ RecordID: number }>> {
+    const response = await apiClient.post("/doctor/medical-records", payload);
+    return { success: true, data: response.data };
   }
-}
-  async uploadExamResult(recordId: number, file: File, description: string = ''): Promise<any> {
+
+  async uploadExamResult(recordId: number, file: File, description = ""): Promise<ApiResponse<unknown>> {
     try {
-      console.log('📎 [uploadExamResult] Uploading file:', { recordId, fileName: file.name });
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("description", description);
+      const response = await apiClient.post(`/doctor/medical-records/${recordId}/results`, formData);
       return {
         success: true,
-        message: 'Upload thành công',
-        data: {
-          id: Date.now(),
-          filename: file.name,
-          url: `mock-url/${file.name}`
-        }
+        message: "Tải tệp thành công",
+        data: response.data
       };
     } catch (error) {
-      console.error('❌ Error uploading exam result:', error);
-      return { success: true, message: 'Upload thất bại (mocked success)' };
+      console.error("Lỗi upload kết quả:", error);
+      return { success: false, message: "Không thể tải tệp kết quả" };
     }
   }
 
   // ==================== PATIENT HISTORY ====================
   async getPatientHistory(patientId: number): Promise<PatientHistoryResponse> {
-    const res = await apiClient.get(`/doctor/patient-history/${patientId}`);
+    const res = await apiClient.get(`/doctor/patients/${patientId}/medical-records`);
     return {
       success: true,
-      data: res.data.data,
+      data: Array.isArray(res.data) ? res.data : (res.data?.data || []),
     };
   }
 
@@ -322,35 +354,49 @@ class DoctorService {
   YearsOfExperience?: number | string;
   ProfileDescription?: string;
 }) {
-  try {
     const payload = {
-      full_name: data.FullName,
+      fullName: data.FullName,
       email: data.email,
-      phone_number: data.phone,
-      SpecialtyID: data.SpecialtyID || 1, 
-      specialty_id: data.SpecialtyID || 1,
-      Degree: data.Degree,
-      YearsOfExperience: data.YearsOfExperience,
-      ProfileDescription: data.ProfileDescription,
+      phoneNumber: data.phone,
+      specialtyId: data.SpecialtyID,
+      degree: data.Degree,
+      yearsOfExperience: data.YearsOfExperience === "" || data.YearsOfExperience === undefined
+        ? undefined
+        : Number(data.YearsOfExperience),
+      profileDescription: data.ProfileDescription,
     };
 
     const response = await apiClient.put("/doctor/profile", payload);
     return response.data;
-  } catch (error: any) {
-    throw error; 
   }
-}
+
+  async getMySettings(): Promise<DoctorSettingsData> {
+    const response = await apiClient.get<DoctorSettingsData>("/doctor/settings");
+    return response.data;
+  }
+
+  async updateSettings(data: DoctorSettingsData): Promise<DoctorSettingsData> {
+    const response = await apiClient.put<DoctorSettingsData>("/doctor/settings", data);
+    return response.data;
+  }
 
   // ==================== SLOT MANAGEMENT ====================
-  async getMySlots(date?: string): Promise<{ success: boolean; data: any[] }> {
-    console.log('🗓️ [getMySlots] Fetching slots');
-    const mockSlots = [
-      { id: 1, date: date || new Date().toISOString().split('T')[0], start_time: "08:00", end_time: "08:30", status: "booked" },
-      { id: 2, date: date || new Date().toISOString().split('T')[0], start_time: "09:00", end_time: "09:30", status: "available" },
-      { id: 3, date: date || new Date().toISOString().split('T')[0], start_time: "10:00", end_time: "10:30", status: "available" }
-    ];
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return { success: true, data: mockSlots };
+  async getMySlots(date?: string): Promise<{ success: boolean; data: DoctorSlotResponse[] }> {
+    const response = await apiClient.get("/doctor/schedules/me", {
+      params: date ? { targetDate: date } : undefined,
+    });
+    return { success: true, data: Array.isArray(response.data) ? response.data : [] };
+  }
+
+  async createSlot(slotData: { date: string; start_time: string; end_time: string }): Promise<void> {
+    await apiClient.post("/doctor/schedules", {
+      startTime: `${slotData.date}T${slotData.start_time}:00`,
+      endTime: `${slotData.date}T${slotData.end_time}:00`,
+    });
+  }
+
+  async deleteSlot(slotId: number): Promise<void> {
+    await apiClient.put(`/doctor/schedules/${slotId}/cancel`, {});
   }
 
   // ==================== HELPER METHODS (ĐÃ SỬA LOGIC) ====================

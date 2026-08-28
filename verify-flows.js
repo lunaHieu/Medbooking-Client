@@ -1,8 +1,7 @@
-const axios = require('axios');
-
 const BACKEND_URL = 'http://localhost:8000/api';
 
 async function runTests() {
+  const { default: axios } = await import('axios');
   console.log('=== Starting Integration Flow Verification ===');
 
   const randomSuffix = Math.floor(Math.random() * 10000);
