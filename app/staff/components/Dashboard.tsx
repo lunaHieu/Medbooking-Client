@@ -56,7 +56,7 @@ export default function Dashboard() {
         // Reload số liệu thống kê để cập nhật
         const newStats = await Api.getStaffDashboard();
         setStats(newStats);
-      } catch (error) {
+      } catch {
         alert("Xác nhận thất bại. Vui lòng thử lại.");
       }
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { AxiosError } from "axios";
 import * as Api from "@/lib/ApiClient";
 import * as Model from "@/lib/model";
 
@@ -46,6 +47,7 @@ export default function AppointmentManagement() {
     phone: "",
     email: "",
     address: "",
+    temporaryPassword: "",
     doctorId: "",
     slotId: 0,
     date: "",
@@ -181,22 +183,24 @@ export default function AppointmentManagement() {
       if (foundPatient) {
         patientId = foundPatient.UserID;
       } else {
+        if (formData.temporaryPassword.length < 8) {
+          alert("Bệnh nhân mới cần mật khẩu tạm thời tối thiểu 8 ký tự.");
+          return;
+        }
         // Nếu chưa có -> Tạo mới user (Role: BenhNhan)
         const newPatientData = new FormData();
         const fullName = formData.fullName.trim();
 
         newPatientData.append("FullName", fullName);
         newPatientData.append("PhoneNumber", formData.phone);
-        newPatientData.append(
-          "Email",
-          formData.email || `${formData.phone}@med.com`
-        ); // Fake email nếu ko có
+        if (formData.email.trim()) {
+          newPatientData.append("Email", formData.email.trim());
+        }
         newPatientData.append("Username", formData.phone); // Username là SĐT
-        newPatientData.append("Role", "BenhNhan");
         newPatientData.append("Status", "HoatDong");
-        newPatientData.append("password", "123456"); // Mật khẩu mặc định
+        newPatientData.append("password", formData.temporaryPassword);
 
-        await Api.adminCreateUser(newPatientData);
+        await Api.adminCreatePatient(newPatientData);
 
         // Tìm lại để lấy ID (do hàm create có thể chỉ trả về message)
         const usersAfterCreate = await Api.adminGetUsers(
@@ -240,6 +244,7 @@ export default function AppointmentManagement() {
         phone: "",
         email: "",
         address: "",
+        temporaryPassword: "",
         doctorId: "",
         slotId: 0,
         date: "",
@@ -247,11 +252,13 @@ export default function AppointmentManagement() {
         reason: "",
       });
       setDoctorSlots([]);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
+      const responseData = error instanceof AxiosError ? error.response?.data : undefined;
+      const apiError = responseData as { message?: string; errors?: unknown } | undefined;
       const msg =
-        error.response?.data?.message ||
-        JSON.stringify(error.response?.data?.errors) ||
+        apiError?.message ||
+        JSON.stringify(apiError?.errors) ||
         "Lỗi khi tạo lịch hẹn";
       alert("❌ " + msg);
     }
@@ -306,7 +313,7 @@ export default function AppointmentManagement() {
       }
       alert("Thành công!");
       loadData();
-    } catch (e) {
+    } catch {
       alert("Lỗi thao tác!");
     }
   };
@@ -600,6 +607,21 @@ export default function AppointmentManagement() {
                       className="w-full px-3 py-2 border rounded-lg"
                     />
                   </div>
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Mật khẩu tạm thời cho bệnh nhân mới
+                  </label>
+                  <input
+                    type="password"
+                    minLength={8}
+                    value={formData.temporaryPassword}
+                    onChange={(e) =>
+                      setFormData({ ...formData, temporaryPassword: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="Tối thiểu 8 ký tự; bỏ trống nếu bệnh nhân đã có tài khoản"
+                  />
                 </div>
                 <div className="mt-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { adminUpdatePatient, ApiError } from "@/lib/ApiClient";
 import { FaStickyNote } from "react-icons/fa";
 import { Search } from "lucide-react";
@@ -24,6 +24,8 @@ interface MedicalRecord {
   Notes?: string;
 }
 
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000") + "/api";
+
 export default function PatientManagement() {
   //State dữ liệu
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -36,12 +38,7 @@ export default function PatientManagement() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
 
-  useEffect(() => {
-    fetchPatients();
-  }, []);
-  const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000") + "/api";
-
-  const fetchPatients = async () => {
+  const fetchPatients = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("api_token");
@@ -69,7 +66,11 @@ export default function PatientManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void fetchPatients();
+  }, [fetchPatients]);
 
   //TÌM KIẾM (Search Logic)
   const filteredPatients = patients.filter((p) => {
@@ -175,7 +176,6 @@ export default function PatientManagement() {
     if (!selectedPatient) return;
 
     const formData = new FormData(event.currentTarget);
-    const usernameToSend = selectedPatient.Username;
     // Tạo payload JSON
     const payload = {
       Username: selectedPatient.Username,

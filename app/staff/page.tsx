@@ -39,9 +39,11 @@ export default function StaffPage() {
           <div className="flex justify-between items-center h-16">
             <Link href="/">
               <div className="flex items-center ">
-                <img
+                <Image
                   src="/image/HUNRE_LOGO.svg"
                   alt="Medbooking"
+                  width={160}
+                  height={80}
                   className="h-20 w-auto object-contain"
                 />
               </div>
