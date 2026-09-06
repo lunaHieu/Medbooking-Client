@@ -1,22 +1,17 @@
 import axios from "axios";
 import * as Model from "./model";
-const rawBase =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://medbooking-java-production.up.railway.app";
+const rawBase = process.env.NEXT_PUBLIC_API_URL;
+
+if (!rawBase) {
+  throw new Error("NEXT_PUBLIC_API_URL phải được cấu hình khi build ứng dụng.");
+}
+
 export const API_BASE_URL = rawBase.replace(/\/$/, "") + "/api";
-console.log(
-  "Resolved NEXT_PUBLIC_API_URL:",
-  process.env.NEXT_PUBLIC_API_URL,
-  "=>",
-  API_BASE_URL,
-);
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true,
   headers: {
     Accept: "application/json",
     "Content-Type": "application/json",
-    "X-Tunnel-Skip-Anti-Phishing": "true",
   },
 });
 export interface ApiError {
@@ -27,28 +22,7 @@ export interface ApiError {
   };
   message: string;
 }
-apiClient.interceptors.response.use(
-  (response) => {
-    console.log("API Response Success:", {
-      status: response.status,
-      url: response.config.url,
-      data: response.data,
-    });
-    return response;
-  },
-  (error) => {
-    console.error("API Response Error:", {
-      status: error.response?.status,
-      url: error.config?.url,
-      message: error.message,
-      response: error.response?.data,
-    });
-    return Promise.reject(error);
-  },
-);
-
 apiClient.interceptors.request.use((config) => {
-  // SỬA: "api_token" thay vì "token"
   const token = localStorage.getItem("api_token");
 
   if (
@@ -57,9 +31,6 @@ apiClient.interceptors.request.use((config) => {
     !config.url?.includes("/register")
   ) {
     config.headers.Authorization = `Bearer ${token}`;
-    console.log("Authorization header added with token");
-  } else {
-    console.log("No token found or excluded route:", config.url);
   }
 
   return config;
@@ -143,7 +114,6 @@ export const login = async (data: {
     localStorage.setItem("api_token", token);
     localStorage.setItem("user_role", frontendRole);
     localStorage.setItem("user", JSON.stringify(user));
-    console.log("Đã lưu token:", token);
   }
 
   return {
@@ -163,10 +133,6 @@ export const logout = async () => {
   localStorage.removeItem("api_token");
   localStorage.removeItem("user_role");
   localStorage.removeItem("user"); // Thêm dòng này
-  localStorage.clear(); // Quét sạch mọi cache cũ
-  sessionStorage.clear();
-
-  // Vũ khí tối thượng: Ép tải lại trang để tiêu diệt mọi State cũ
   window.location.href = "/login";
 };
 
